@@ -29,13 +29,13 @@ KBase account is required for the in-person training.
 2. The hands-on session will cover metagenome analysis using the KBase pipeline. 
 
 ### Before The Day
-Refer to the Prerequisites section. 
+Please take a look at the Prerequisites section. 
 
 ### On The Day
 Feb 6th
-Bring your laptop. We (Ellen and Young) will provide the link to the KBase narrative (pipeline).
 
-
+Bring your laptop. We (Ellen and Young) will provide the link to the KBase narrative (pipeline). The narrative contains the FASTQ files from NEON samples, which we will work with.
 
 ## Agenda on contents of the workshop
+The steps of the metagenomics analysis covered in the KBase narrative are similar to those used in the JGI pipeline. During the hands-on workshop, we will discuss the fundamental concepts of these processes and the types of data retrieved from them.
 
