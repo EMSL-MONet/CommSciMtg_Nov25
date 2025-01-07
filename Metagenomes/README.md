@@ -29,8 +29,13 @@ KBase account is required for the in-person training.
 2. The hands-on session will cover metagenome analysis using the KBase pipeline. 
 
 ### Before The Day
+Refer to the Prerequisites section. 
 
 ### On The Day
+Feb 6th
+Bring your laptop. We (Ellen and Young) will provide the link to the KBase narrative (pipeline).
+
+
 
 ## Agenda on contents of the workshop
 
