@@ -15,10 +15,18 @@ Where:  EMSL 1077, Breakout Room 4
 # Know before you go
 
 ## Prerequistes
+KBase account is required for the in-person training.
 
 ## Data Access
 
 ### Learning Objective
+1. Metagenomics: Promises and caveats (February 4th).
+   This short presentation will discuss the following topics:
+   - Capability and limitation of metagenome analysis
+   - Information accessible through the EMSL Data Portal/JGI metagenome pipeline
+   - Alternate approach of metagenome analysis (i.e., intro to KBase)
+     
+2. The hands-on session will cover metagenome analysis using the KBase pipeline. 
 
 ### Before The Day
 
