@@ -15,7 +15,9 @@ Where:  EMSL 1077, Breakout Room 4
 # Know before you go
 
 ## Prerequistes
-KBase account is required for the in-person training.
+KBase account is required for the in-person training. Please follow the steps in the provided link below:
+
+https://github.com/EMSL-MONet/CommSciMtg_Nov25
 
 ## Data Access
 
