@@ -1,0 +1,38 @@
+---
+title: "FTICR_Monet_Processing"
+date: "2024-07-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library(tidyverse)
+
+```
+
+## R Markdown
+
+```{r cars}
+
+import_files = function(FILEPATH = "FTICR-MS/data/34b1337c-4c0a-433f-8c76-af77b821794f/processed_data/fticr copy"){
+
+  zip_filePaths <- list.files(path = FILEPATH, pattern = ".zip", full.names = TRUE, recursive = TRUE)
+
+  zip_filePaths %>% lapply(unzip)
+  
+
+  csv_filePaths <- list.files(#path = FILEPATH, 
+                          pattern = "fticrWEOM", full.names = TRUE)
+  
+  icr_dat <- do.call(bind_rows, lapply(csv_filePaths, function(path) {
+    
+    data = read.csv(path) %>% mutate(source = basename(path))
+    
+  }))
+  
+  file.remove(csv_filePaths)
+
+}
+
+
+```
