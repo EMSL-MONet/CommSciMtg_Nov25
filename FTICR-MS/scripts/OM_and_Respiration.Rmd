@@ -1,0 +1,430 @@
+---
+title: "monet_fticr"
+author: "VGC"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file()) # Sets working Directory to the R project
+
+rm(list=ls(all=T))
+library(readxl)
+library(tidyverse)
+library(vegan)
+library(ggrepel)
+library(stringr)
+library(see)
+library(ggforce)
+library(readxl)
+library(ggpubr) # for stats
+library(cowplot)
+```
+## Get data ready for analysis
+### 1- Reading in the data
+Read-in Processed MONet FTICR-MS and Biogeochemistry data 
+
+```{r cars, echo=FALSE}
+# Biogeochemistry data
+biogeochem =read.csv('./data/Soil_BioChemical_properties.csv')
+
+# FTICR Data
+mol = read.csv('./merged_data_VGC/ft_mol.csv', row.names = 1) # Molecular Formulas will be row names
+     
+data = read.csv('./merged_data_VGC/ft_data.csv', row.names = 1) # data is already in presence absence 
+
+
+```
+### 2- Merge replicates and Clean up Data
+
+Merge replicate where you keep a molecular formula if it was present in at least 2 out of the 3 samples replicates for that site and core location. 
+
+```{r pressure, echo=FALSE}
+
+# Function to process each site
+process_site <- function(site_data) {
+  # Identify rep columns
+  rep_cols <- grep("rep", names(site_data), value = TRUE)
+  
+  # Convert to binary (1/0)
+  binary_reps <- site_data[, rep_cols] > 0
+  
+  # Count number of reps with 1
+  rep_counts <- rowSums(binary_reps)
+  
+  # Create merged column: 1 if 2 or more reps have a 1, 0 otherwise
+  merged_column <- as.numeric(rep_counts >= 2)
+  
+  return(merged_column)
+}
+
+# Function to extract site name
+extract_site <- function(col_name) {
+  # Split the column name and extract site part
+  parts <- strsplit(col_name, "_")[[1]]
+  site <- paste(parts[2], parts[3], parts[4], sep = "_")
+  return(site)
+}
+
+# Process the entire dataset
+process_fticr_data <- function(data) {
+  # Get unique sites
+  unique_sites <- unique(sapply(names(data), function(x) {
+    if(grepl("rep", x)) extract_site(x)
+  }))
+  
+  # Initialize result dataframe
+  result <- data.frame(matrix(ncol = length(unique_sites), nrow = nrow(data)))
+  names(result) <- unique_sites
+  
+  # Preserve rownames
+  rownames(result) <- rownames(data)
+  
+  # Process each site
+  for(site in unique_sites) {
+    # Select columns for this site
+    site_cols <- grep(site, names(data), value = TRUE)
+    site_data <- data[, site_cols]
+    
+    # Process site data
+    result[, site] <- process_site(site_data)
+  }
+  
+  return(result)
+}
+
+# Use the function
+merged_fticr_data <- process_fticr_data(data)
+
+# Extra cleaning if needed 
+# clean up missing peaks across all samples
+merged_fticr_data = merged_fticr_data[-which(rowSums(merged_fticr_data) == 0),]
+
+# removing singletons (formulas found only in one site)
+singletons = apply(merged_fticr_data, 1, function(x) length(which(x > 0))) # identify
+merged_fticr_data = merged_fticr_data[-which(singletons == 1),]
+
+# making sure the columns match in the mol file
+mol <- mol[rownames(mol) %in% rownames(merged_fticr_data), ]
+
+```
+
+### 3- Calculate Average Molecular Indices in the merged file
+```{r pressure, echo=FALSE}
+# Calculate averages and total formulas
+result <- lapply(1:ncol(merged_fticr_data), function(i) {
+  # Create a subset of mol where the corresponding merged_fticr_data column is 1
+  subset_mol <- mol[merged_fticr_data[,i] == 1, ]
+  
+  list(
+    Mean_C = mean(subset_mol$C, na.rm = T),
+    Mean_H = mean(subset_mol$H, na.rm = T),
+    Mean_O = mean(subset_mol$O, na.rm = T),
+    Mean_N = mean(subset_mol$N, na.rm = T),
+    Mean_S = mean(subset_mol$S, na.rm = T),
+    Mean_P = mean(subset_mol$P, na.rm = T),
+    Mean_DBE = mean(subset_mol$DBE, na.rm = T),
+    Mean_AImod = mean(subset_mol$AImod, na.rm = T),
+    Mean_NOSC = mean(subset_mol$NOSC, na.rm = T),
+    Mean_GFE = mean(subset_mol$GFE, na.rm = T),
+    total_formulas = sum(merged_fticr_data[,i] != 0)
+  )
+})
+
+# Convert the list to a dataframe
+mol_properties_average <- do.call(rbind, lapply(result, as.data.frame))
+rownames(mol_properties_average) <- colnames(merged_fticr_data)
+
+# Add Sample_ID and separate into Site_Code and Layer
+mol_properties_average <- mol_properties_average %>%
+  tibble::rownames_to_column("Sample_ID") %>%
+  dplyr::mutate(Sample_ID = as.character(Sample_ID)) %>%
+  tidyr::separate(Sample_ID, into = c("Proposal_ID","Sample_number", "Layer"), sep = "_", remove = FALSE) 
+
+```
+
+### 4- Calculate Relevative Abundance for Elemental composition and for Compound Classes
+
+```{r , echo=FALSE}
+
+perc_classes <- merged_fticr_data %>%
+    summarise(
+    CHO_percent = apply(merged_fticr_data, 2, function(x) sum(x[mol$El_form == 'CHO'] !=0)*100/sum(x != 0)),
+    CHON_percent = apply(merged_fticr_data, 2, function(x) sum(x[mol$El_form == 'CHON'] !=0)*100/sum(x != 0)),
+    CHOS_percent = apply(merged_fticr_data, 2, function(x) sum(x[mol$El_form == 'CHOS'] !=0)*100/sum(x != 0)),
+#Calculate the Compound class diversity - as in the percentage of formula identified as lipid, etc. These are not intensity   weighted
+    Lipid_percent = apply(merged_fticr_data, 2, function(x) sum(x[mol$Class == 'Lipid'] !=0)*100 / sum(x)),
+    UnsatHydrocarbon_percent = apply(merged_fticr_data, 2, function(x) sum(x[mol$Class == 'Unsat Hydrocarbon'] !=0)*100 / sum(x!=0)),
+    Protein_percent = apply(merged_fticr_data, 2, function(x) sum(x[mol$Class == 'Protein'] !=0)*100 / sum(x!=0)),
+    Lignin_percent = apply(merged_fticr_data, 2, function(x) sum(x[mol$Class == 'Lignin'] !=0)*100 / sum(x!=0)),
+    Carbohydrate_percent = apply(merged_fticr_data, 2, function(x) sum(x[mol$Class == 'Carbohydrate'] !=0)*100 / sum(x!=0)),
+    AminoSugar_percent = apply(merged_fticr_data, 2, function(x) sum(x[mol$Class == 'Amino Sugar'] !=0)*100 / sum(x!=0)),
+    Tannin_percent = apply(merged_fticr_data, 2, function(x) sum(x[mol$Class == 'Tannin'] !=0)*100 / sum(x!=0)),
+    CondHydrcarbon_percent = apply(merged_fticr_data, 2, function(x) sum(x[mol$Class == 'Cond Hydrocarbon'] !=0)*100 / sum(x!=0))) %>%
+  mutate(Sample = names(merged_fticr_data))%>%
+  select(Sample, everything())
+
+
+```
+## Analyze data
+
+#### H1: TOP layer will be richer (total number of peaks with MF assigned), more diverse and higher WEOM concentration than BTM layer. Thus the TOP layer will have higher respiration than BTM.
+
+#### Richness
+Evaluate richness as the total number of molecular formula assigned within all top and bottom samples and do a boxplot where points are sample level total number of peaks categorically colors by top or bottom.
+
+```{r}
+
+# Perform t-test to compare richness between TOP and BTM
+t_test_result <- t.test(Richness ~ Depth, data = result)
+
+# Define colorblind-friendly soil colors
+soil_colors <- c("TOP" = "#D2B48C", "BTM" = "#8B4513")  # Lighter brown for TOP, darker brown for BTM
+
+
+# Create the boxplot with statistical test
+plot <- ggplot(result, aes(x = Depth, y = Richness, fill = Depth)) +
+  geom_boxplot() +
+  labs(
+    title = "Molecular Formula Richness by Depth",
+    x = "Depth",
+    y = "Richness (Total Molecular Formulas)"
+  ) +
+  theme_bw() +
+  scale_fill_manual(values = soil_colors) +
+  stat_compare_means(comparisons = list(c("TOP", "BTM")), method = "t.test", label = "p.format")
+
+# Print the plot
+print(plot)
+
+```
+
+#### Diversity in a multivariate space
+##### NMDS
+Use only peaks to plot and color by top and bottom in a NMDS space plot color by TOP and BTM
+## NMDS
+```{r}
+set.seed(1988)
+#Run NMDS using Jaccard distance for the presence/absence data and bray-curtis for the hellinger(abundance data)
+dist = vegdist(x = t(data_neon), method = "jaccard") 
+
+# Plotting Jaccard NMDS
+nms = metaMDS(dist, trymax = 1000) # Determining NMDS
+nms = as.data.frame(scores(nms)) # Converting to scores
+factors = result %>% dplyr::select(-Richness)
+nms = cbind(factors, nms)
+
+#Perform PERMANOVA
+depth = as.factor(nms$Depth)
+permanova = adonis2(t(data_neon) ~ depth, method = "jaccard", permutations = 999)
+
+# Extract the p-value from the PERMANOVA results
+permanova_pvalue = permanova$`Pr(>F)`[1]
+
+#Plot
+plot <- nms %>%
+  ggplot(aes(x = NMDS1, y = NMDS2)) +
+  geom_point(aes(color = Depth), size = 4) +
+  stat_ellipse(aes(color = Depth), level = 0.95, linetype = 2) +
+  scale_color_manual(values = soil_colors) + 
+  theme_bw() +
+  theme(legend.position = "top") +
+  labs(
+    x = "NMDS Dimension 1",
+    y = "NMDS Dimension 2") +
+  annotate("text", x = Inf, y = Inf, label = paste("PERMANOVA p-value =", format.pval(permanova_pvalue)), hjust = 1.1, vjust = 1.1)
+
+# Print the plot
+print(plot)
+```
+
+#### PCA
+Use molecular characteristics (AImod, DBE, etc) as your matrix for a PCA to plot color by TOP and BTM
+```{r}
+
+chemical_data = mol_properties_average %>%
+  dplyr::select(c(-Site_Code,-Sample_ID,-Layer, -OC_mean,-HC_mean))
+
+pca_result <- prcomp(chemical_data, scale. = TRUE)
+
+# Create a data frame with PCA results
+pca_scores <- as.data.frame(pca_result$x)
+pca_loadings <- as.data.frame(pca_result$rotation)
+
+# Add PCA scores to the geo_chem dataframe
+geo_chem <- cbind(geo_chem, pca_scores)
+
+# Calculate the percentage of variance explained by each PC
+percent_variance <- round(100 * pca_result$sdev^2 / sum(pca_result$sdev^2), 1)
+
+# Create the PCA plot with loadings as arrows
+pca_plot <- ggplot(geo_chem, aes(x = PC1, y = PC2, color = Location)) +
+  geom_point(size = 3) +
+  scale_color_manual(values = soil_colors) +
+  theme_bw() +
+  labs( x = paste0("Principal Component 1 (", percent_variance[1], "%)"),
+       y = paste0("Principal Component 2 (", percent_variance[2], "%)")) +
+  theme(legend.position = "top") +
+  geom_segment(data = pca_loadings, aes(x = 0, y = 0, xend = PC1 * max(pca_scores$PC1),
+                                        yend = PC2 * max(pca_scores$PC2)), 
+               arrow = arrow(length = unit(0.3, "cm")), color = "darkred") +
+  geom_text(data = pca_loadings, aes(x = PC1 * max(pca_scores$PC1),
+                                     y = PC2 * max(pca_scores$PC2), 
+                                     label = rownames(pca_loadings)), color = "black", vjust = 1.5)
+
+print(pca_plot)
+
+
+
+```
+
+
+#### Boxplot of respiration
+```{r}
+geo_chem$Site <- gsub("_TOP|_BTM", "", geo_chem$Sample_ID)
+
+# Generate the boxplot
+ggplot(geo_chem, aes(x = Site, y = as.numeric(`Respiration_24_h_ug_CO2-C_per_g_soil_per_day`), fill = Location)) +
+  geom_bar(stat = 'identity') +
+  labs(x = '', y = "Respiration (ug CO2-C per g soil per day)") +
+  theme_bw()+
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
+        axis.text.y = element_text(color = "black"),
+        axis.title.x = element_text(color = "black"),
+        axis.title.y = element_text(color = "black"),
+        plot.title = element_text(color = "black"),
+        legend.position = "top") +
+  scale_fill_manual(values = c("TOP" = "#D2B48C", "BTM" = "#8B4513"))  # Lighter brown for TOP, darker brown for BTM
+
+
+
+```
+#### Correlations
+Correlation between richness(number of peaks with molecular formula assigned in a sample) and respiration for each top and bottom. If OM richness has a role, there would be a correlation with the top data but not bottom. 
+
+Plotting Pearson correlations
+```{r}
+# changing column names before merging
+names(result)[1] = 'Sample_ID'
+names(result)[3] = 'Location'
+
+geo_chem$`Respiration_24_h_ug_CO2-C_per_g_soil_per_day` = as.numeric(geo_chem$`Respiration_24_h_ug_CO2-C_per_g_soil_per_day`)
+
+data_cor = merge(result,geo_chem, by = c('Sample_ID','Location'))
+data_cor = data_cor %>%
+  dplyr::select(Location,Richness,`Respiration_24_h_ug_CO2-C_per_g_soil_per_day`)
+
+
+ggplot(data_cor, aes(x = Richness, y = `Respiration_24_h_ug_CO2-C_per_g_soil_per_day`)) + 
+  geom_point() +
+  facet_wrap(~ Location, scales = 'free_y') +
+  labs( x = "Richness",
+       y = "Respiration (ug CO2-C per g soil per day)") +
+  theme_bw() +
+    stat_cor(method = "pearson", aes(label = paste(..r.label.., ..p.label.., sep = "~`,`~")), label.x.npc = "left", label.y.npc = "top") +
+ theme(aspect.ratio = 1)
+
+
+```
+
+#### H2: Within the TOP layer, respiration rates are influenced by thermodynamics of DOM where more thermo favorable C will correlate with faster decomposition and higher respiration rates 
+
+#### Boxplot of GFE and NOSC
+[LaRowe and Van Cappellen, 2012](https://www.sciencedirect.com/science/article/pii/S0016703711000378) found an empirical relationship between the Gibbs Free Energy of C oxidation at standard state (GFE) and the nominal oxidation state of C (NOSC).*Lower values of GFE (i.e., lower magnitudes are more thermodynamically favorable.*
+
+![Image from LaRowe and Van Capellen 2012. Standard molal Gibbs energies of the oxidation half reactions of organic compounds as a function of the average nominal oxidation state of carbon (NOSC) in the compounds, at 25 °C and 1 bar. The Gibbs energies are expressed in kJ per mole of carbon (a) and kJ per mole of electrons transferred (b)](C:/Users/gara009/OneDrive - PNNL/Documents/GitHub/NEON-MONet/img/NOSCandGFE.jpg)
+
+
+```{r}
+# Create the boxplot of mean values with statistical test
+# NOSC
+ggplot(mol_properties_average, aes(x = Layer, y = as.numeric(NOSC_mean), fill = Layer)) +
+  geom_boxplot() +
+  labs(
+    title = "NOSC by Depth",
+    x = "Depth",
+    y = "Nominal oxidation State of C"
+  ) +
+  theme_bw() +
+  scale_fill_manual(values = soil_colors) +
+  stat_compare_means(comparisons = list(c("TOP", "BTM")), method = "t.test", label = "p.format")
+
+# GFE
+ggplot(mol_properties_average, aes(x = Layer, y = as.numeric(GFE_mean), fill = Layer)) +
+  geom_boxplot() +
+  labs(
+    title = "GFE by Depth",
+    x = "Depth",
+    y = "Gibbs free energy of C oxidation at standard state (kJ/mol C)"
+  ) +
+  theme_bw() +
+  scale_fill_manual(values = soil_colors) +
+  stat_compare_means(comparisons = list(c("TOP", "BTM")), method = "t.test", label = "p.format")
+
+
+```
+
+#### Correlations with respiration
+Plotting Pearson correlations
+```{r}
+# changing column names before merging
+names(mol_properties_average)[3] = 'Location'
+
+data_cor = merge(result,geo_chem, by = c('Sample_ID','Location'))
+data_cor = data_cor %>%
+  dplyr::select(Location,NOSC_mean,GFE_mean,`Respiration_24_h_ug_CO2-C_per_g_soil_per_day`)
+
+
+ggplot(data_cor, aes(x = GFE_mean, y = `Respiration_24_h_ug_CO2-C_per_g_soil_per_day`)) + 
+  geom_point() +
+  facet_wrap(~ Location, scales = 'free_y') +
+  labs( x = "Gibbs free energy of C oxidation at standard state (kJ/mol C)",
+       y = "Respiration (ug CO2-C per g soil per day)") +
+  theme_bw() +
+    stat_cor(method = "pearson", aes(label = paste(..r.label.., ..p.label.., sep = "~`,`~")), label.x.npc = "left", label.y.npc = "top") +
+ theme(aspect.ratio = 1)
+
+ggplot(data_cor, aes(x = NOSC_mean, y = `Respiration_24_h_ug_CO2-C_per_g_soil_per_day`)) + 
+  geom_point() +
+  facet_wrap(~ Location, scales = 'free_y') +
+  labs( x = "Nominal oxidation State of C",
+       y = "Respiration (ug CO2-C per g soil per day)") +
+  theme_bw() +
+    stat_cor(method = "pearson", aes(label = paste(..r.label.., ..p.label.., sep = "~`,`~")), label.x.npc = "left", label.y.npc = "top") +
+ theme(aspect.ratio = 1)
+```
+
+Looking at water extractable C across samples
+```{r}
+geo_chem <- geo_chem %>%
+  mutate(WEOC_mean = as.numeric(WEOC_mean))  # Ensure WEOC_mean is numeric
+
+# Create the main plot with zoom
+main_plot <- ggplot(geo_chem, aes(x = Location, y = WEOC_mean, fill = Location)) +
+  geom_boxplot() +
+  labs(
+    x = "Depth",
+    y = "Water Extractable Organic C (mg/g)"
+  ) +
+  scale_fill_manual(values = soil_colors) +
+  theme_bw() +
+  stat_compare_means(comparisons = list(c("TOP", "BTM")), method = "t.test", label = "p.format") +
+  facet_zoom(ylim = c(0, 0.4))
+
+print(main_plot)
+
+# Correlation between WEOC and Respiration
+# Removing WEOC outlier to appreciate better the correlations 
+geo_chem <- geo_chem %>%
+  filter(WEOC_mean < 2)  # Remove the outlier 
+
+ggplot(geo_chem, aes(x = WEOC_mean, y = `Respiration_24_h_ug_CO2-C_per_g_soil_per_day`)) +  geom_point() +
+  facet_wrap(~ Location, scales = 'free_y') +
+  labs( x = "Water Extractable Organic C (mg/g)",
+       y = "Respiration (ug CO2-C per g soil per day)") +
+  theme_bw() +
+    stat_cor(method = "pearson", aes(label = paste(..r.label.., ..p.label.., sep = "~`,`~")), label.x.npc = "left", label.y.npc = "top") +
+ theme(aspect.ratio = 1)
+
+```
+
