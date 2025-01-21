@@ -19,12 +19,14 @@ All the materials needed for the hands-on session are located in this repository
 
 
 ### Before The Day
-- Get familiar with thermodynamic modeling. A good place to start is https://www.frontiersin.org/articles/10.3389/fmicb.2020.531756/full 
+- Get familiar with thermodynamic modeling. A good place to start is https://www.frontiersin.org/articles/10.3389/fmicb.2020.531756/full
+- Test a few code blocks in the Google Colab link below to ensure everything’s working smoothly.
+  
 ### On The Day 
 Get Ready for the Colab Session!
 - Bring Your Laptop 💻 – Connected to the internet and ready to go!
 - Open the Notebook on Google Colab 🌐 – Log in with your Google account and set up early to avoid delays.
-- Test It 🛠️ – Run the first few code blocks to ensure everything’s working smoothly.
+- Test It 🛠️ – Run the first few code blocks to ensure everything’s working smoothly. If it doesn't run let one of us know. 
 - Be Ready to Learn & Have Fun 🎉 – Let’s network, learn, and crush it together!
 
 
