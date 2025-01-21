@@ -39,7 +39,7 @@ data = read.csv('./merged_data_VGC/ft_data.csv', row.names = 1) # data is alread
 
 Merge replicate where you keep a molecular formula if it was present in at least 2 out of the 3 samples replicates for that site and core location. 
 
-```{r pressure, echo=FALSE}
+```{r presa, echo=FALSE}
 
 # Function to process each site
 process_site <- function(site_data) {
@@ -139,7 +139,7 @@ rownames(mol_properties_average) <- colnames(merged_fticr_data)
 mol_properties_average <- mol_properties_average %>%
   tibble::rownames_to_column("Sample_ID") %>%
   dplyr::mutate(Sample_ID = as.character(Sample_ID)) %>%
-  tidyr::separate(Sample_ID, into = c("Proposal_ID","Sample_number", "Layer"), sep = "_", remove = FALSE) 
+  tidyr::separate(Sample_ID, into = c("Proposal_ID","Sample_number", "Depth"), sep = "_", remove = FALSE) 
 
 ```
 
@@ -176,14 +176,14 @@ Evaluate richness as the total number of molecular formula assigned within all t
 ```{r}
 
 # Perform t-test to compare richness between TOP and BTM
-t_test_result <- t.test(Richness ~ Depth, data = result)
+t_test_result <- t.test(total_formulas ~ Depth, data = mol_properties_average)
 
 # Define colorblind-friendly soil colors
 soil_colors <- c("TOP" = "#D2B48C", "BTM" = "#8B4513")  # Lighter brown for TOP, darker brown for BTM
 
 
 # Create the boxplot with statistical test
-plot <- ggplot(result, aes(x = Depth, y = Richness, fill = Depth)) +
+plot <- ggplot(mol_properties_average, aes(x = Depth, y = total_formulas, fill = Depth)) +
   geom_boxplot() +
   labs(
     title = "Molecular Formula Richness by Depth",
@@ -206,17 +206,17 @@ Use only peaks to plot and color by top and bottom in a NMDS space plot color by
 ```{r}
 set.seed(1988)
 #Run NMDS using Jaccard distance for the presence/absence data and bray-curtis for the hellinger(abundance data)
-dist = vegdist(x = t(data_neon), method = "jaccard") 
+dist = vegdist(x = t(merged_fticr_data), method = "jaccard") 
 
 # Plotting Jaccard NMDS
 nms = metaMDS(dist, trymax = 1000) # Determining NMDS
 nms = as.data.frame(scores(nms)) # Converting to scores
-factors = result %>% dplyr::select(-Richness)
+factors = mol_properties_average %>% dplyr::select(Sample_ID,Depth)
 nms = cbind(factors, nms)
 
 #Perform PERMANOVA
 depth = as.factor(nms$Depth)
-permanova = adonis2(t(data_neon) ~ depth, method = "jaccard", permutations = 999)
+permanova = adonis2(t(merged_fticr_data) ~ depth, method = "jaccard", permutations = 999)
 
 # Extract the p-value from the PERMANOVA results
 permanova_pvalue = permanova$`Pr(>F)`[1]
@@ -232,7 +232,7 @@ plot <- nms %>%
   labs(
     x = "NMDS Dimension 1",
     y = "NMDS Dimension 2") +
-  annotate("text", x = Inf, y = Inf, label = paste("PERMANOVA p-value =", format.pval(permanova_pvalue)), hjust = 1.1, vjust = 1.1)
+annotate("text", x = -Inf, y = -Inf, label = paste("PERMANOVA p-value =", format.pval(permanova_pvalue)), hjust = -0.1, vjust = -0.1)
 
 # Print the plot
 print(plot)
@@ -243,7 +243,7 @@ Use molecular characteristics (AImod, DBE, etc) as your matrix for a PCA to plot
 ```{r}
 
 chemical_data = mol_properties_average %>%
-  dplyr::select(c(-Site_Code,-Sample_ID,-Layer, -OC_mean,-HC_mean))
+  dplyr::select(c(-Proposal_ID,-Sample_ID,-Depth, -Sample_number,-total_formulas, -Mean_P))
 
 pca_result <- prcomp(chemical_data, scale. = TRUE)
 
@@ -251,14 +251,14 @@ pca_result <- prcomp(chemical_data, scale. = TRUE)
 pca_scores <- as.data.frame(pca_result$x)
 pca_loadings <- as.data.frame(pca_result$rotation)
 
-# Add PCA scores to the geo_chem dataframe
-geo_chem <- cbind(geo_chem, pca_scores)
+# Add PCA scores to factors
+pca_dat <- cbind(factors, pca_scores)
 
 # Calculate the percentage of variance explained by each PC
 percent_variance <- round(100 * pca_result$sdev^2 / sum(pca_result$sdev^2), 1)
 
 # Create the PCA plot with loadings as arrows
-pca_plot <- ggplot(geo_chem, aes(x = PC1, y = PC2, color = Location)) +
+pca_plot <- ggplot(pca_dat, aes(x = PC1, y = PC2, color = Depth)) +
   geom_point(size = 3) +
   scale_color_manual(values = soil_colors) +
   theme_bw() +
@@ -279,14 +279,20 @@ print(pca_plot)
 ```
 
 
-#### Boxplot of respiration
+#### Boxplot of WEOM     
+
 ```{r}
-geo_chem$Site <- gsub("_TOP|_BTM", "", geo_chem$Sample_ID)
+biogeochem$Depth <- biogeochem$Core_Section
+biogeochem = biogeochem %>%
+  filter(!is.na(WEOM_TOC_mg_per_kg))
+
+biogeochem$Sample_combination = sub("_[^_]+_[^_]+$", "", biogeochem$Sample_Name)
+biogeochem$Sample_ID = sub("_[^_]+$", "", biogeochem$Sample_Name)
 
 # Generate the boxplot
-ggplot(geo_chem, aes(x = Site, y = as.numeric(`Respiration_24_h_ug_CO2-C_per_g_soil_per_day`), fill = Location)) +
+ggplot(biogeochem, aes(x = Sample_combination, y = as.numeric(`WEOM_TOC_mg_per_kg`), fill = Depth)) +
   geom_bar(stat = 'identity') +
-  labs(x = '', y = "Respiration (ug CO2-C per g soil per day)") +
+  labs(x = '', y = "WEOM_TOC_mg_per_kg") +
   theme_bw()+
     theme(axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
         axis.text.y = element_text(color = "black"),
@@ -296,38 +302,31 @@ ggplot(geo_chem, aes(x = Site, y = as.numeric(`Respiration_24_h_ug_CO2-C_per_g_s
         legend.position = "top") +
   scale_fill_manual(values = c("TOP" = "#D2B48C", "BTM" = "#8B4513"))  # Lighter brown for TOP, darker brown for BTM
 
-
-
 ```
+
+
 #### Correlations
-Correlation between richness(number of peaks with molecular formula assigned in a sample) and respiration for each top and bottom. If OM richness has a role, there would be a correlation with the top data but not bottom. 
+Correlation between richness(number of peaks with molecular formula assigned in a sample) and WEOM for each top and bottom. 
 
 Plotting Pearson correlations
 ```{r}
-# changing column names before merging
-names(result)[1] = 'Sample_ID'
-names(result)[3] = 'Location'
 
-geo_chem$`Respiration_24_h_ug_CO2-C_per_g_soil_per_day` = as.numeric(geo_chem$`Respiration_24_h_ug_CO2-C_per_g_soil_per_day`)
-
-data_cor = merge(result,geo_chem, by = c('Sample_ID','Location'))
+data_cor = merge(mol_properties_average,biogeochem, by = c('Sample_ID','Depth'))
 data_cor = data_cor %>%
-  dplyr::select(Location,Richness,`Respiration_24_h_ug_CO2-C_per_g_soil_per_day`)
+  dplyr::select(Depth,total_formulas,WEOM_TOC_mg_per_kg)
 
 
-ggplot(data_cor, aes(x = Richness, y = `Respiration_24_h_ug_CO2-C_per_g_soil_per_day`)) + 
+ggplot(data_cor, aes(x = total_formulas, y = WEOM_TOC_mg_per_kg)) + 
   geom_point() +
-  facet_wrap(~ Location, scales = 'free_y') +
+  facet_wrap(~ Depth, scales = 'free_y') +
   labs( x = "Richness",
-       y = "Respiration (ug CO2-C per g soil per day)") +
+       y = "WEOM_TOC_mg_per_kg") +
   theme_bw() +
     stat_cor(method = "pearson", aes(label = paste(..r.label.., ..p.label.., sep = "~`,`~")), label.x.npc = "left", label.y.npc = "top") +
  theme(aspect.ratio = 1)
 
 
 ```
-
-#### H2: Within the TOP layer, respiration rates are influenced by thermodynamics of DOM where more thermo favorable C will correlate with faster decomposition and higher respiration rates 
 
 #### Boxplot of GFE and NOSC
 [LaRowe and Van Cappellen, 2012](https://www.sciencedirect.com/science/article/pii/S0016703711000378) found an empirical relationship between the Gibbs Free Energy of C oxidation at standard state (GFE) and the nominal oxidation state of C (NOSC).*Lower values of GFE (i.e., lower magnitudes are more thermodynamically favorable.*
@@ -338,7 +337,7 @@ ggplot(data_cor, aes(x = Richness, y = `Respiration_24_h_ug_CO2-C_per_g_soil_per
 ```{r}
 # Create the boxplot of mean values with statistical test
 # NOSC
-ggplot(mol_properties_average, aes(x = Layer, y = as.numeric(NOSC_mean), fill = Layer)) +
+ggplot(mol_properties_average, aes(x = Depth, y = as.numeric(Mean_NOSC), fill = Depth)) +
   geom_boxplot() +
   labs(
     title = "NOSC by Depth",
@@ -350,7 +349,7 @@ ggplot(mol_properties_average, aes(x = Layer, y = as.numeric(NOSC_mean), fill = 
   stat_compare_means(comparisons = list(c("TOP", "BTM")), method = "t.test", label = "p.format")
 
 # GFE
-ggplot(mol_properties_average, aes(x = Layer, y = as.numeric(GFE_mean), fill = Layer)) +
+ggplot(mol_properties_average, aes(x = Depth, y = as.numeric(Mean_GFE), fill = Depth)) +
   geom_boxplot() +
   labs(
     title = "GFE by Depth",
@@ -364,67 +363,25 @@ ggplot(mol_properties_average, aes(x = Layer, y = as.numeric(GFE_mean), fill = L
 
 ```
 
-#### Correlations with respiration
-Plotting Pearson correlations
+        
+#### WEOM Boxplots
+Looking at water extractable C across depths
+
 ```{r}
-# changing column names before merging
-names(mol_properties_average)[3] = 'Location'
-
-data_cor = merge(result,geo_chem, by = c('Sample_ID','Location'))
-data_cor = data_cor %>%
-  dplyr::select(Location,NOSC_mean,GFE_mean,`Respiration_24_h_ug_CO2-C_per_g_soil_per_day`)
-
-
-ggplot(data_cor, aes(x = GFE_mean, y = `Respiration_24_h_ug_CO2-C_per_g_soil_per_day`)) + 
-  geom_point() +
-  facet_wrap(~ Location, scales = 'free_y') +
-  labs( x = "Gibbs free energy of C oxidation at standard state (kJ/mol C)",
-       y = "Respiration (ug CO2-C per g soil per day)") +
-  theme_bw() +
-    stat_cor(method = "pearson", aes(label = paste(..r.label.., ..p.label.., sep = "~`,`~")), label.x.npc = "left", label.y.npc = "top") +
- theme(aspect.ratio = 1)
-
-ggplot(data_cor, aes(x = NOSC_mean, y = `Respiration_24_h_ug_CO2-C_per_g_soil_per_day`)) + 
-  geom_point() +
-  facet_wrap(~ Location, scales = 'free_y') +
-  labs( x = "Nominal oxidation State of C",
-       y = "Respiration (ug CO2-C per g soil per day)") +
-  theme_bw() +
-    stat_cor(method = "pearson", aes(label = paste(..r.label.., ..p.label.., sep = "~`,`~")), label.x.npc = "left", label.y.npc = "top") +
- theme(aspect.ratio = 1)
-```
-
-Looking at water extractable C across samples
-```{r}
-geo_chem <- geo_chem %>%
-  mutate(WEOC_mean = as.numeric(WEOC_mean))  # Ensure WEOC_mean is numeric
 
 # Create the main plot with zoom
-main_plot <- ggplot(geo_chem, aes(x = Location, y = WEOC_mean, fill = Location)) +
+main_plot <- ggplot(biogeochem, aes(x = Depth, y = WEOM_TOC_mg_per_kg, fill = Depth)) +
   geom_boxplot() +
   labs(
     x = "Depth",
-    y = "Water Extractable Organic C (mg/g)"
+    y = "WEOM_TOC_mg_per_kg"
   ) +
   scale_fill_manual(values = soil_colors) +
   theme_bw() +
-  stat_compare_means(comparisons = list(c("TOP", "BTM")), method = "t.test", label = "p.format") +
-  facet_zoom(ylim = c(0, 0.4))
+  stat_compare_means(comparisons = list(c("TOP", "BTM")), method = "t.test", label = "p.format") 
 
 print(main_plot)
 
-# Correlation between WEOC and Respiration
-# Removing WEOC outlier to appreciate better the correlations 
-geo_chem <- geo_chem %>%
-  filter(WEOC_mean < 2)  # Remove the outlier 
-
-ggplot(geo_chem, aes(x = WEOC_mean, y = `Respiration_24_h_ug_CO2-C_per_g_soil_per_day`)) +  geom_point() +
-  facet_wrap(~ Location, scales = 'free_y') +
-  labs( x = "Water Extractable Organic C (mg/g)",
-       y = "Respiration (ug CO2-C per g soil per day)") +
-  theme_bw() +
-    stat_cor(method = "pearson", aes(label = paste(..r.label.., ..p.label.., sep = "~`,`~")), label.x.npc = "left", label.y.npc = "top") +
- theme(aspect.ratio = 1)
 
 ```
 
