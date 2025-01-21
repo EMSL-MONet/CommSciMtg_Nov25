@@ -32,7 +32,6 @@ Get Ready for the Colab Session!
 - Use Jupyter Notebook deployed on Google Colab to execute the workflow.  **Link to collab JUPYTER NOTEBOOK https://colab.research.google.com/drive/1-LIyu8R6NPO6ArY-g0bl4UjsHzpsefqA?usp=sharing**
 
 ## What to expect when you attend the workshop:
-
 * Data Exploration: Learn to download and explore the MONet 1000 soil dataset from Zenodo using zenodo_get and Pandas.
 * FTICR Data Processing: Process FTICR data to assign chemical classes and calculate diversity metrics.
 * Thermodynamic Modeling: Use the thermodynamic theory to estimate microbial traits like substrate uptake rate and carbon use efficiency.
