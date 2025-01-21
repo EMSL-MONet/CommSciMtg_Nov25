@@ -20,7 +20,7 @@ and [RStudio](https://posit.co/downloads/) before the meeting.
 All the materials needed for the hands on session are located in this repository: https://github.com/EMSL-MONet/CommSciMtg_Nov25/tree/main/FTICR-MS
 
 ### Learning Objective
-After completing this hands on session, you will be able to:
+After completing this in-person training, you will be able to:
 
 •	Load and inspect FT-ICR-MS data using R Markdown <br>
 •	Run code within R Markdown to create FT-ICR-MS visualizations <br>
