@@ -13,23 +13,6 @@ Where:  EMSL 1077, Breakout Room 1
 
 ## Prerequistes
 
-## Data Access
-
-### Learning Objective
-
-### Before The Day
-
-### On The Day
-
-## Agenda on contents of the workshop
-
-## What to expect when you attend the workshop:
-
-* Hands-on learning of basic processing, segmentation, and visualization of 3D tomography data using Fiji
-* Demo XCT data analysis using Avizo
-
-## What do you need to install, instructions on how to get to the program?
-
 **Install Fiji:**
 
 1. Download and install Fiji, an open-source image analysis software: https://fiji.sc/
@@ -40,33 +23,36 @@ Where:  EMSL 1077, Breakout Room 1
 1. Open the file "Soil core 2 top zoom_500x500x500_8b".
 2. See slides 4-7 in "XCT_tutorial_Fiji.pptx" for help.
 
-## Tips and troubleshooting
-
 * Please install Fiji ahead of time.
 * If you have any problems installing or using Fiji, please see the file "XCT_tutorial_Fiji.pptx" or contact the workshop organizers for help.
 
-## Where is the data?
-
 * Link to download the data for the Fiji-based exercise: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8377888.svg)](https://doi.org/10.5281/zenodo.8377888)
+
+  
+## Data Access
+
+### Learning Objective
+
+* Hands-on learning of basic processing, segmentation, and visualization of 3D tomography data using Fiji
+* Demo XCT data analysis using Avizo
+
+### Before The Day
+
+Please take a look at the Prerequisites secion
+
+### On The Day
+
+Febuary 5th 2025
+
+Please bring your laptop and have the required software and data set downloaded. 
 
 ## Agenda on contents of the workshop
 
-### Learning outcomes of the day:
-
-* Understanding 3D data, its processing and analysis, as well as visualization with an emphasis on the pore structure of soil
-
-### What did we do?
-
+Learn the following steps with image processing. 
 * Opened 3D XCT image data
 * Performed basic data processing steps
 * Segmented porosity from soil data
 * Visualized pore structure
-
-### What can you do on your own?
-
-* All of the steps in this hands-on tutorial can be done on your own
-
-## Other resources
 
 ### See Data Tutorial presentation in Session 3: 
 
