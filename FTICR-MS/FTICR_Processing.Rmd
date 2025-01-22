@@ -1,38 +1,154 @@
 ---
 title: "FTICR_Monet_Processing"
 date: "2024-07-22"
-output: html_document
+output: 
+  html_document:
+    keep_md: yes
+    code_folding: hide
 ---
 
-```{r setup, include=FALSE}
+``` {r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      message = FALSE,
+                      warning = FALSE)
+```
+
+
+
+```{r setup2, include=FALSE}
 
 library(tidyverse)
+theme_set(theme_bw(base_size = 14))
 
 ```
 
 ## R Markdown
 
-```{r cars}
+#### Import and combine data
 
-import_files = function(FILEPATH = "FTICR-MS/data/34b1337c-4c0a-433f-8c76-af77b821794f/processed_data/fticr copy"){
+```{r import}
 
+## Each sample has 3 replicates, compressed in a single zip file.
+## This script will extract all the zip files in the target folder (creating temporary files) and import and combine them into a single dataframe.
+## Finally, we will delete the temporary files.
+
+import_files = function(FILEPATH){
+
+  # identify the .zip files and unzip them as csv files
+  # the csv files will be saved in the parent directory (these are temporary files, will be deleted at the end)
   zip_filePaths <- list.files(path = FILEPATH, pattern = ".zip", full.names = TRUE, recursive = TRUE)
-
   zip_filePaths %>% lapply(unzip)
   
-
-  csv_filePaths <- list.files(#path = FILEPATH, 
-                          pattern = "fticrWEOM", full.names = TRUE)
+  # now, identify all the fticrWEOM csv files that we just extracted 
+  csv_filePaths <- list.files(pattern = "fticrWEOM", full.names = TRUE)
   
+  # read and combine the fticrWEOM csv files
   icr_dat <- do.call(bind_rows, lapply(csv_filePaths, function(path) {
     
-    data = read.csv(path) %>% mutate(source = basename(path))
+    data = read.csv(path) %>% 
+      mutate(source = basename(path)) # add file name
     
   }))
   
+  # finally, delete the temporary files from the parent directory
   file.remove(csv_filePaths)
 
+  # this is our final output
+  icr_dat
 }
+
+icr_data = import_files("FTICR-MS/FTICR_Processing_data")
+```
+
+#### Initial cleaning
+
+```{r initial_cleaning}
+
+icr_columns =
+  icr_data %>% 
+  janitor::clean_names() %>% 
+  dplyr::select(source, molecular_formula, calculated_m_z, h_c, o_c, dbe, c, h, o, n, p, s, contains("peak_area")) %>% 
+  separate(source, sep = "_", into = c("icr", "Proposal_ID", "Sampling_Set", "Core_Section", "Rep")) %>% 
+  mutate(Rep = parse_number(Rep)) %>% 
+  dplyr::select(-icr)
+
+
+head(icr_columns) %>% knitr::kable()
+```
+
+#### 3 acquisitions
+
+```{r}
+## acquisition reps
+
+icr_acq = 
+  icr_columns %>% 
+  mutate(peak_area_1 = case_when(peak_area_1 > 0 ~ 1),
+         peak_area_2 = case_when(peak_area_2 > 0 ~ 1),
+         peak_area_3 = case_when(peak_area_3 > 0 ~ 1),
+         acquisition_count = peak_area_1 + peak_area_2 + peak_area_3,
+         acquisition_KEEP = acquisition_count >= 2) %>% 
+  filter(acquisition_KEEP) %>% 
+  dplyr::select(-c(contains("peak_area"), contains("acquisition")))
 
 
 ```
+
+
+#### 3 replicates
+
+```{r}
+## Now, we only select molecules that were identified in 2/3 of the total reps
+
+max_replicates = 
+  icr_acq %>% 
+  dplyr::select(Proposal_ID, Sampling_Set, Core_Section, Rep) %>% 
+  distinct() %>% 
+  group_by(Proposal_ID, Sampling_Set, Core_Section) %>% 
+  dplyr::summarise(total_reps = n()) 
+
+
+icr_reps = 
+  icr_acq %>% 
+  left_join(max_replicates) %>% 
+  group_by(Proposal_ID, Sampling_Set, Core_Section, molecular_formula) %>% 
+  dplyr::mutate(peak_reps = n()) %>%
+  mutate(KEEP = peak_reps >= (2/3) * total_reps) %>% 
+  filter(KEEP)
+
+icr_reps_keep = 
+  icr_reps %>% 
+  dplyr::select(-c(Rep, total_reps, peak_reps, KEEP)) %>% 
+  distinct()
+
+```
+
+---- 
+
+# van krevelen
+
+```{r}
+
+icr_reps_keep %>% 
+  ggplot(aes(x = o_c, y = h_c))+
+  geom_point(size = 0.5)+
+  facet_wrap(~ Core_Section + Proposal_ID + Sampling_Set)
+
+```
+
+## unique peaks
+
+```{r}
+unique = 
+  icr_reps_keep %>% 
+  group_by(molecular_formula) %>% 
+  dplyr::mutate(count = n())
+
+unique %>% 
+  filter(n == 1) %>% 
+  ggplot(aes(x = o_c, y = h_c, color = Core_Section))+
+  geom_point(size = 2)+
+  facet_wrap(~ Proposal_ID + Sampling_Set)  
+
+```
+
