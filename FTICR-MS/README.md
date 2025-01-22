@@ -3,7 +3,7 @@
 ## Workshop Session
 What: Session 4: In-Person Training   <br>
 When: Thursday February 6th: 8:30am – 10:40 am, or  10:50 am - 12 noon <br>
-Where:  EMSL 1077, Breakout Room 3
+Where:  EMSL 1075, Breakout Room 3
 
 •	Vanessa Garayburu-Caruso | Earth Scientist  <br>
 •	Kaizad Patel | Earth Scientist  <br>
