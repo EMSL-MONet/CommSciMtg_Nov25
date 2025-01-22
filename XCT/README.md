@@ -3,7 +3,7 @@
 ## Workshop Session
 What: Session 4: In-Person Training   <br>
 When: Wednesday February 5th: 1:00 pm – 2:30 am, or  2:40 pm - 4:10 pm <br>
-Where:  EMSL 1077, Breakout Room 1
+Where:  EMSL 1075, Breakout Room 1
 
 •	Tamas Varga | Materials Scientist  <br>
 •	Billy Petersen | Post Bachelors RA   <br>
