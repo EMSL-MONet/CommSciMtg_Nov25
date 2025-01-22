@@ -48,35 +48,110 @@ import_files = function(FILEPATH){
   icr_dat
 }
 
-icr_data = import_files("FTICR-MS/FTICR_Processing_data")
+icr_report = import_files("FTICR-MS/FTICR_Processing_data")
 ```
 
-#### Initial cleaning
+
+This contains a lot of info -- we do not need all these columns!
+
+Step 1 is to split this file into two: (a) `mol` file, which has info for each molecule/peak; and (b) `dat` file, which has data about the samples
+
+
+#### Create molecular metadata file
 
 
 ```r
-icr_columns =
-  icr_data %>% 
+mol = 
+  icr_report %>% 
+  dplyr::select(`Molecular.Formula`, C,H,O,N,P,S) %>% 
+  rename(molecular_formula = `Molecular.Formula`) %>% 
+  distinct()
+```
+
+Now, we want to process the `mol` file and calculate a bunch of indices
+
+
+(a) indices
+
+
+```r
+mol = 
+  mol %>% 
+  mutate(across(c("N","S","P"), ~replace_na(.,0)),
+         AImod = round((1 + C - (0.5*O) - S - (0.5 * (N+P+H)))/(C - (0.5*O) - S - N - P), 4),
+         NOSC =  round(4-(((4*C) + H - (3*N) - (2*O) - (2*S))/C), 4),
+         GFE = 60.3-(28.5 * NOSC),
+         AImod = ifelse(is.na(AImod), 0, AImod),
+         AImod = ifelse(AImod == "Inf", 0, AImod),
+         AImod = ifelse(AImod == "-Inf", 0, AImod),
+         HC = round(H/C, 2),
+         OC = round(O/C, 2)
+  )
+```
+
+(b) Elemental class
+
+
+```r
+mol = 
+  mol %>% 
+  mutate(
+    El = str_remove_all(molecular_formula, "[0-9]"),
+    El = str_remove_all(El, " "))
+```
+
+(c) molecular class
+
+
+```r
+mol = 
+  mol %>% 
+  mutate(
+    Class1 = case_when(HC >= 1.55 & HC <= 2.25 & OC >= 0 & OC <= 0.3 ~ "Lipid",
+                       HC >= 0.7 & HC <= 1.5 & OC >= 0.05 & OC <= 0.15 ~ "Unsat Hydrocarbon",
+                       HC >= 1.45 & HC <= 2 & OC >= 0.3 & OC <= 0.55 ~ "Protein",
+                       HC >= 0.81 & HC <= 1.45 & OC >= 0.28 & OC <= 0.65 ~ "Lignin",
+                       HC >= 1.48 & HC <= 2.15 & OC >= 0.68 & OC <= 1 ~ "Carbohydrate",
+                       HC >= 1.34 & HC <= 1.8 & OC >= 0.54 & OC <= 0.71 ~ "Amino Sugar",
+                       HC >= 0.7 & HC <= 1.3 & OC >= 0.65 & OC <= 1.05 ~ "Tannin",
+                       HC >= 0.3 & HC <= 0.81 & OC >= 0.12 & OC <= 0.7 ~ "Cond Hydrocarbon",
+                       TRUE ~ "Other"),
+    Class2 = case_when(AImod > 0.66 ~ "condensed aromatic",
+                       AImod <= 0.66 & AImod > 0.50 ~ "aromatic",
+                       AImod <= 0.50 & HC < 1.5 ~ "unsaturated/lignin",
+                       HC >= 1.5 ~ "aliphatic"),
+    Class2 = replace_na(Class2, "other"),
+    Class3 = case_when(AImod > 0.66 ~ "condensed aromatic",
+                       AImod <= 0.66 & AImod > 0.50 ~ "aromatic",
+                       AImod <= 0.50 & HC < 1.5 ~ "unsaturated/lignin",
+                       HC >= 2.0 & OC >= 0.9 ~ "carbohydrate",
+                       HC >= 2.0 & OC < 0.9 ~ "lipid",
+                       HC < 2.0 & HC >= 1.5 & N == 0 ~ "aliphatic",
+                       HC < 2.0 & HC >= 1.5 & N > 0 ~ "aliphatic+N")
+  )
+```
+
+
+this file now contains most of the info needed to interpret the data across different samples.
+
+---
+
+#### Create `dat` file
+
+
+```r
+dat = 
+  icr_report %>% 
+  dplyr::select(source, Molecular.Formula, Calculated.m.z, contains("Peak.Area")) %>% 
   janitor::clean_names() %>% 
-  dplyr::select(source, molecular_formula, calculated_m_z, h_c, o_c, dbe, c, h, o, n, p, s, contains("peak_area")) %>% 
   separate(source, sep = "_", into = c("icr", "Proposal_ID", "Sampling_Set", "Core_Section", "Rep")) %>% 
-  mutate(Rep = parse_number(Rep)) %>% 
+  mutate(Rep = parse_number(Rep),
+         sample_name = paste0(Proposal_ID, "_", Sampling_Set, "_", Core_Section)) %>% 
   dplyr::select(-icr)
-
-
-head(icr_columns) %>% knitr::kable()
 ```
 
 
 
-|Proposal_ID |Sampling_Set |Core_Section | Rep|molecular_formula | calculated_m_z|       h_c|       o_c| dbe|  c|  h|  o|  n|  p|  s| peak_area_1| peak_area_2| peak_area_3|
-|:-----------|:------------|:------------|---:|:-----------------|--------------:|---------:|---------:|---:|--:|--:|--:|--:|--:|--:|-----------:|-----------:|-----------:|
-|60846       |12           |BTM          |   1|C4 H6 O4          |       117.0193| 1.5000000| 1.0000000|   2|  4|  6|  4| NA| NA| NA|    165.4613|          NA|          NA|
-|60846       |12           |BTM          |   1|C7 H6 O2          |       121.0295| 0.8571429| 0.2857143|   5|  7|  6|  2| NA| NA| NA|    714.4242|   1058.4286|    717.0051|
-|60846       |12           |BTM          |   1|C6 H6 O3          |       125.0244| 1.0000000| 0.5000000|   4|  6|  6|  3| NA| NA| NA|    173.8752|    346.4921|    262.1961|
-|60846       |12           |BTM          |   1|C6 H8 O3          |       127.0401| 1.3333333| 0.5000000|   3|  6|  8|  3| NA| NA| NA|    370.3141|    440.2943|    324.5887|
-|60846       |12           |BTM          |   1|C7 H12 O2         |       127.0765| 1.7142857| 0.2857143|   2|  7| 12|  2| NA| NA| NA|    207.7001|    241.4806|    220.2612|
-|60846       |12           |BTM          |   1|C5 H7 O3 N1       |       128.0353| 1.4000000| 0.6000000|   3|  5|  7|  3|  1| NA| NA|    759.1546|    795.0198|    658.9399|
 
 #### 3 acquisitions
 
@@ -84,8 +159,8 @@ head(icr_columns) %>% knitr::kable()
 ```r
 ## acquisition reps
 
-icr_acq = 
-  icr_columns %>% 
+dat_acq = 
+  dat %>% 
   mutate(peak_area_1 = case_when(peak_area_1 > 0 ~ 1),
          peak_area_2 = case_when(peak_area_2 > 0 ~ 1),
          peak_area_3 = case_when(peak_area_3 > 0 ~ 1),
@@ -103,56 +178,131 @@ icr_acq =
 ## Now, we only select molecules that were identified in 2/3 of the total reps
 
 max_replicates = 
-  icr_acq %>% 
-  dplyr::select(Proposal_ID, Sampling_Set, Core_Section, Rep) %>% 
+  dat_acq %>% 
+  dplyr::select(sample_name, Proposal_ID, Sampling_Set, Core_Section, Rep) %>% 
   distinct() %>% 
-  group_by(Proposal_ID, Sampling_Set, Core_Section) %>% 
+  group_by(sample_name, Proposal_ID, Sampling_Set, Core_Section) %>% 
   dplyr::summarise(total_reps = n()) 
 
 
-icr_reps = 
-  icr_acq %>% 
+dat_reps = 
+  dat_acq %>% 
   left_join(max_replicates) %>% 
   group_by(Proposal_ID, Sampling_Set, Core_Section, molecular_formula) %>% 
   dplyr::mutate(peak_reps = n()) %>%
+  ungroup() %>% 
   mutate(KEEP = peak_reps >= (2/3) * total_reps) %>% 
-  filter(KEEP)
+  filter(KEEP) %>% 
+  dplyr::select(-KEEP)
 
-icr_reps_keep = 
-  icr_reps %>% 
-  dplyr::select(-c(Rep, total_reps, peak_reps, KEEP)) %>% 
+dat_reps_keep = 
+  dat_reps %>% 
+  dplyr::select(-c(Rep, total_reps, peak_reps)) %>% 
   distinct()
+```
+
+This is the list of all the peaks "present" (identified) in our samples.
+
+Now, combine this file with the `mol` file we generated above.
+
+
+
+```r
+icr_processed = 
+  dat_reps_keep %>% 
+  left_join(mol)
+
+names(icr_processed)
+```
+
+```
+##  [1] "Proposal_ID"       "Sampling_Set"      "Core_Section"     
+##  [4] "molecular_formula" "calculated_m_z"    "sample_name"      
+##  [7] "C"                 "H"                 "O"                
+## [10] "N"                 "P"                 "S"                
+## [13] "AImod"             "NOSC"              "GFE"              
+## [16] "HC"                "OC"                "El"               
+## [19] "Class1"            "Class2"            "Class3"
 ```
 
 ---- 
 
-# van krevelen
+# Van Krevelen Plots and Molecular Classes
+
+
+## VK Domains
 
 
 ```r
-icr_reps_keep %>% 
-  ggplot(aes(x = o_c, y = h_c))+
-  geom_point(size = 0.5)+
-  facet_wrap(~ Core_Section + Proposal_ID + Sampling_Set)
+vk_domains = 
+  icr_processed %>% 
+  dplyr::select(HC, OC, Class1, Class2, Class3)
+
+vk1 = 
+  vk_domains %>% 
+  ggplot(aes(x = OC, y = HC, color = Class1))+
+  geom_point()
+
+vk2 = 
+  vk_domains %>% 
+  ggplot(aes(x = OC, y = HC, color = Class2))+
+  geom_point()
+
+vk3 = 
+  vk_domains %>% 
+  ggplot(aes(x = OC, y = HC, color = Class3))+
+  geom_point()
+
+cowplot::plot_grid(vk1, vk2, vk3)
 ```
 
-![](FTICR_Processing_files/figure-html/unnamed-chunk-3-1.png)<!-- -->
+![](FTICR_Processing_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
+
+
+## VK Patterns in samples
+
+
+```r
+icr_processed %>% 
+  ggplot(aes(x = OC, y = HC))+
+  geom_point(size = 0.5)+
+  facet_wrap(~ sample_name)
+```
+
+![](FTICR_Processing_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
 
 ## unique peaks
 
 
 ```r
-unique = 
-  icr_reps_keep %>% 
-  group_by(molecular_formula) %>% 
-  dplyr::mutate(count = n())
+unique_top = 
+  icr_processed %>% 
+  group_by(molecular_formula, Proposal_ID) %>% 
+  dplyr::mutate(count = n()) %>% 
+  ungroup()
 
-unique %>% 
-  filter(n == 1) %>% 
-  ggplot(aes(x = o_c, y = h_c, color = Core_Section))+
+unique_top %>% 
+  filter(count == 1) %>% 
+  ggplot(aes(x = OC, y = HC, color = Core_Section))+
   geom_point(size = 2)+
   facet_wrap(~ Proposal_ID + Sampling_Set)  
 ```
 
-![](FTICR_Processing_files/figure-html/unnamed-chunk-4-1.png)<!-- -->
+![](FTICR_Processing_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
+
+```r
+unique_site = 
+  icr_processed %>% 
+  filter(Core_Section == "TOP") %>% 
+  group_by(molecular_formula) %>% 
+  dplyr::mutate(count = n())
+
+unique_site %>% 
+  filter(count == 1) %>% 
+  ggplot(aes(x = OC, y = HC, color = Proposal_ID))+
+  geom_point(size = 2)+
+  stat_ellipse(level = 0.90, linewidth = 2)
+```
+
+![](FTICR_Processing_files/figure-html/unnamed-chunk-11-2.png)<!-- -->
 
