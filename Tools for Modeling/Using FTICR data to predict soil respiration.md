@@ -1,11 +1,11 @@
 # Tools for Modeling
-
+## Using FTICR data to predict soil respiration
 ## Workshop Session
 What: Session 4: In-Person Training   <br>
 When: Wednesday, February 5th: 1:00 pm – 2:30 am, or  2:40 pm - 4:10 pm <br>
 Where:  EMSL 1077, Breakout Room 2
 
-•	Arjun Chakrawal | Postdoctoral Researcher   <br>
+•	**Arjun Chakrawal** | Postdoctoral Researcher   <br>
 •	Maruti Mudunuru | Earth Scientist  <br>
 
 
