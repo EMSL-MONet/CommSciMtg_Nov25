@@ -49,3 +49,6 @@ po/*~
 rsconnect/
 
 .DS_Store
+
+# Big ICR data
+/FTICR-MS/merged_data_VGC/
