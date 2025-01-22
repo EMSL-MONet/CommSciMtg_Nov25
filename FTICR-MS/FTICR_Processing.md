@@ -1,6 +1,6 @@
 ---
 title: "FTICR_Monet_Processing"
-date: "2024-07-22"
+date: "2025-04-06"
 output: 
   html_document:
     keep_md: yes
@@ -273,6 +273,8 @@ icr_processed %>%
 
 ## unique peaks
 
+top vs. bottom
+
 
 ```r
 unique_top = 
@@ -290,6 +292,10 @@ unique_top %>%
 
 ![](FTICR_Processing_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
 
+
+comparing sites
+
+
 ```r
 unique_site = 
   icr_processed %>% 
@@ -301,8 +307,51 @@ unique_site %>%
   filter(count == 1) %>% 
   ggplot(aes(x = OC, y = HC, color = Proposal_ID))+
   geom_point(size = 2)+
-  stat_ellipse(level = 0.90, linewidth = 2)
+  stat_ellipse(level = 0.90, linewidth = 1, aes(group = Proposal_ID), color = "black")
 ```
 
-![](FTICR_Processing_files/figure-html/unnamed-chunk-11-2.png)<!-- -->
+![](FTICR_Processing_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
+
+
+
+```r
+icr_processed %>% 
+  ggplot(aes(x = NOSC, color = Core_Section))+
+  geom_histogram(position = "identity", fill = NA, linewidth = 1)+
+  facet_wrap(~Proposal_ID)
+```
+
+![](FTICR_Processing_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
+
+```r
+icr_processed %>% 
+  ggplot(aes(x = calculated_m_z, color = Core_Section))+
+  geom_histogram(position = "identity", fill = NA, linewidth = 1)+
+#  geom_density(linewidth = 1)+
+  facet_wrap(~Proposal_ID)
+```
+
+![](FTICR_Processing_files/figure-html/unnamed-chunk-13-2.png)<!-- -->
+
+
+### relative abundance
+
+
+```r
+relabund = 
+  icr_processed %>% 
+  group_by(Proposal_ID, Sampling_Set, Core_Section, sample_name, Class2) %>% 
+  dplyr::summarise(count = n()) %>% 
+  group_by(Proposal_ID, Sampling_Set, Core_Section, sample_name) %>% 
+  dplyr::mutate(total = sum(count),
+                relabund = 100 * count/total) %>% 
+  ungroup()
+
+relabund %>% 
+  ggplot(aes(x = Core_Section, y = relabund, fill = Class2)) +
+  geom_bar(stat = "identity")+
+  facet_wrap(~Proposal_ID)
+```
+
+![](FTICR_Processing_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
 
