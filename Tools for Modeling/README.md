@@ -22,8 +22,8 @@ Check the prerequistes section within each demosntration
 ### Learning Objective
 After completing this in-person training, you will be able to:
 
-•	Demo 1: 
-•	Demo 2:
+•	Demo 1: <br>
+•	Demo 2: <br>
 
 ### Before The Day
 1. Check readmes from each demo
