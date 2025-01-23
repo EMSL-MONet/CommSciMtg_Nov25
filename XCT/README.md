@@ -25,11 +25,9 @@ Where:  EMSL 1075, Breakout Room 1
 
 * Please install Fiji ahead of time.
 * If you have any problems installing or using Fiji, please see the file "XCT_tutorial_Fiji.pptx" or contact the workshop organizers for help.
-
-* Link to download the data for the Fiji-based exercise: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8377888.svg)](https://doi.org/10.5281/zenodo.8377888)
-
-  
+ 
 ## Data Access
+* Link to download the data for the Fiji-based exercise: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8377888.svg)](https://doi.org/10.5281/zenodo.8377888)
 
 ### Learning Objective
 
