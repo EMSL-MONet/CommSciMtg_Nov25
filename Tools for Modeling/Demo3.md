@@ -28,5 +28,5 @@ After completing this in-person training, you will be able to:
 
 ## Agenda on contents of the workshop
 - Use Jupyter Notebook deployed on Google Colab to execute the workflow.  
-**Link to collab JUPYTER NOTEBOOK DEMO 2 https://drive.google.com/file/d/1BbZyA9x70lEmpKaE-bYCxoEgRn8xJb8t/view?usp=sharing**
+**Link to collab JUPYTER NOTEBOOK DEMO 2 https://colab.research.google.com/drive/1RJMzxUXDq_602R1egBkcGNTSfXNHdPIN?usp=sharing**
 
