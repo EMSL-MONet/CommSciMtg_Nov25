@@ -36,3 +36,12 @@ After completing this in-person training, you will be able to:
 - Use Jupyter Notebook deployed on Google Colab to execute the workflow.  
 **Link to collab JUPYTER NOTEBOOK DEMO 3 https://colab.research.google.com/drive/1RJMzxUXDq_602R1egBkcGNTSfXNHdPIN?usp=sharing**
 **Link to toy data for notebooks https://github.com/aramyxt/MONet_Pore2Chip_data**
+
+This Jupyter Notebook may require a high amount of RAM to run. The default (free) plan of Google Colab may not provide sufficient memory. 
+If you encounter memory issues, please follow these steps to run the notebook locally:
+- Set Up a Local Environment: Create a Conda or Anaconda environment to ensure compatibility and easy package management.
+- Install Required Packages:
+  - Install the pore2chip using "pip install pore2chip" and
+  - Install Jupyter Notebook to run the script locally using "pip install notebook"
+- Download the Notebook and Data: Download the notebook (p2c_example_2_flow_2d_numerical_on_chip.ipynb) and associated data using the provided links.
+- Run Locally: Open the downloaded notebook in Jupyter Notebook from your local directory and execute the cells.
