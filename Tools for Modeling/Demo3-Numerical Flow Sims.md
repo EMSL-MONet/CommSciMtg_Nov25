@@ -43,11 +43,12 @@ If you encounter memory issues, please follow these steps to run the notebook lo
 - Set Up a Local Environment: Create a Conda or Anaconda environment to ensure compatibility and easy package management.
 - Install Required Packages:
   - Install the pore2chip using
-    
       ```
       pip install pore2chip
       ```
-    "pip install pore2chip" and
-  - Install Jupyter Notebook to run the script locally using "pip install notebook"
+  - Install Jupyter Notebook to run the script locally using
+      ```
+      pip install notebook
+      ```
 - Download the Notebook and Data: Download the notebook (p2c_example_2_flow_2d_numerical_on_chip.ipynb) and associated data using the provided links.
 - Run Locally: Open the downloaded notebook in Jupyter Notebook from your local directory and execute the cells.
