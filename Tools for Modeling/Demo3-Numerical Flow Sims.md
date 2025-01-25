@@ -38,7 +38,7 @@ Use Jupyter Notebook deployed on Google Colab to execute the workflow.
   
   - **Link to toy data for notebooks https://github.com/aramyxt/MONet_Pore2Chip_data**
 
-This Jupyter Notebook may require a high amount of RAM to run. The default (free) plan of Google Colab may not provide sufficient memory. 
+This Jupyter Notebook may require a high amount of RAM to run depending on the mesh size. The default (free) plan of Google Colab may not provide sufficient memory. 
 If you encounter memory issues, please follow these steps to run the notebook locally:
 - Set Up a Local Environment: Create a Conda or Anaconda environment to ensure compatibility and easy package management.
 - Install Required Packages:
