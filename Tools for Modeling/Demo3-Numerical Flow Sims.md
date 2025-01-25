@@ -35,6 +35,7 @@ After completing this in-person training, you will be able to:
 ## Agenda on contents of the workshop
 - Use Jupyter Notebook deployed on Google Colab to execute the workflow.  
 **Link to collab JUPYTER NOTEBOOK DEMO 3 https://colab.research.google.com/drive/1RJMzxUXDq_602R1egBkcGNTSfXNHdPIN?usp=sharing**
+  
 **Link to toy data for notebooks https://github.com/aramyxt/MONet_Pore2Chip_data**
 
 This Jupyter Notebook may require a high amount of RAM to run. The default (free) plan of Google Colab may not provide sufficient memory. 
