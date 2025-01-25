@@ -19,6 +19,7 @@ All the materials needed for the hands-on session are located in this repository
 ### Learning Objective
 After completing this in-person training, you will be able to:
 - Execute and interpret workflows using Jupyter Notebooks on Google Colab.
+- Mapping permeability field for the micromodels of interst.
 - Understand the fundamentals of numerical simulations applied to soil micromodels.
 - Simulate 2D steady-state fulid flow in soil micromodels.
 
