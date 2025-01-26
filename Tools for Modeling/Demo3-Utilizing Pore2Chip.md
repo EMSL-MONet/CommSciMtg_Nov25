@@ -1,5 +1,5 @@
 # Tools for Modeling
-## Demo 2: Utilizing Pore2Chip to make a 2D Digital Twin of a Soil XCT Scan
+## Demo 3: Utilizing Pore2Chip to make a 2D Digital Twin of a Soil XCT Scan
 ## Workshop Session
 What: Session 4: In-Person Training   <br>
 When: Wednesday, February 5th: 1:00 pm – 2:30 am, or  2:40 pm - 4:10 pm <br>
