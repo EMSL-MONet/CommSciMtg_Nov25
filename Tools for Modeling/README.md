@@ -14,8 +14,8 @@ Where:  EMSL 1077, Breakout Room 2
 This in-person training session is intended to provide an overview of modeling tool used to analyze key MONet data type specicially FTICR and XCT. The material for each of these demonstrations is provided within three Markdown file links below. Participants should make every effort to utilize the scripts provided in order to get the most out of the session, even if they are more familiar with another scripting languages.
 * Demo 1: [Using FTICR data to constrain kinetic model for predicting soil respiration](https://github.com/EMSL-MONet/CommSciMtg_Nov25/blob/main/Tools%20for%20Modeling/Demo1-Using%20FTICR%20data%20to%20predict%20soil%20respiration.md) <br>
 * Demo 2: [Hands-on learning of basic processing, segmentation, and visualization of 3D tomography](https://github.com/EMSL-MONet/CommSciMtg_Nov23/tree/main/XCT)
-* Demo 3: [Utilizing Pore2Chip to make a 2D Digital Twin of a Soil XCT Scan](https://github.com/EMSL-MONet/CommSciMtg_Nov25/blob/main/Tools%20for%20Modeling/Demo2-Utilizing%20Pore2Chip.md)  <br>
-* Demo 4: [Performing Numerical Simulations on Example Soil Micromodel](https://github.com/EMSL-MONet/CommSciMtg_Nov25/blob/main/Tools%20for%20Modeling/Demo3-Numerical%20Flow%20Sims.md)
+* Demo 3: [Utilizing Pore2Chip to make a 2D Digital Twin of a Soil XCT Scan](https://github.com/EMSL-MONet/CommSciMtg_Nov25/blob/main/Tools%20for%20Modeling/Demo3-Utilizing%20Pore2Chip.md)  <br>
+* Demo 4: [Performing Numerical Simulations on Example Soil Micromodel](https://github.com/EMSL-MONet/CommSciMtg_Nov25/blob/main/Tools%20for%20Modeling/Demo4-Numerical%20Flow%20Sims.md)
 
 ## Prerequistes
 Check the prerequistes section within each demosntration
