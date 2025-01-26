@@ -1,5 +1,5 @@
 # Tools for Modeling
-## Demo 3: Performing Numerical Simulations on Example Soil Micromodel
+## Demo 4: Performing Numerical Simulations on Example Soil Micromodel
 ## Workshop Session
 What: Session 4: In-Person Training   <br>
 When: Wednesday, February 5th: 1:00 pm – 2:30 am, or  2:40 pm - 4:10 pm <br>
