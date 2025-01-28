@@ -1,0 +1,522 @@
+---
+title: "FTICR_Data_Visualizations"
+date: "2025-01-27"
+output: 
+  html_document:
+    keep_md: yes
+    code_folding: hide
+---
+
+
+
+
+
+## Get data ready for analysis <br>
+
+### Read in the data
+
+Read-in Processed MONet FTICR-MS and Biogeochemistry data. The FTICR-MS steps below are the same ones on the FTICR_Processing.Rmd file. 
+
+
+
+### Initial cleaning
+
+Step 1 is to split this file into two: (a) `mol` file, which has info for each molecule/peak; and (b) `dat` file, which has data about the samples
+
+
+### Create molecular metadata file
+
+This dataframe contains information pertaining to each peak, including the molecular formula and other molecular indices.  
+We first select only the columns with atomic composition.
+
+
+``` r
+mol = 
+  icr_report %>% 
+  dplyr::select(`Molecular.Formula`, C,H,O,N,P,S) %>% 
+  rename(molecular_formula = `Molecular.Formula`) %>% 
+  distinct()
+```
+
+Now, we want to process the `mol` file and calculate various indices
+
+(a) indices
+
+- AImod (aromatic index), calculated based on [Koch and Dittmar (2016)](https://doi.org/10.1002/rcm.7433)
+- NOSC (nominal oxidation state of carbon), calculated based on [Riedel et al. 2012](https://doi.org/10.1021/es203901u)
+- GFE (Gibbs Free Energy of carbon oxidation), calculated from NOSC, as per [LaRowe & Van Cappellen 2011](https://doi.org/10.1016/j.gca.2011.01.020)
+- H/C, or the ratio of hydrogen to carbon in the molecule
+- O/C, or the ratio of oxygen to carbon in the molecule
+
+
+``` r
+mol = 
+  mol %>% 
+  mutate(across(c("N","S","P"), ~replace_na(.,0)),
+         AImod = round((1 + C - (0.5*O) - S - (0.5 * (N+P+H)))/(C - (0.5*O) - S - N - P), 4),
+         AImod = ifelse(is.na(AImod), 0, AImod),
+         AImod = ifelse(AImod == "Inf", 0, AImod),
+         AImod = ifelse(AImod == "-Inf", 0, AImod),
+         NOSC =  round(4-(((4*C) + H - (3*N) - (2*O) - (2*S))/C), 4),
+         GFE = 60.3-(28.5 * NOSC),
+         HC = round(H/C, 2),
+         OC = round(O/C, 2)
+  )
+```
+
+(b) Elemental class
+
+We can also group the molecules based on the elemental composition, i.e. "CHO", "CHONS", "CHONP", "CHONPS" classes
+
+
+``` r
+mol = 
+  mol %>% 
+  mutate(
+    El = str_remove_all(molecular_formula, "13C"),
+    El = str_remove_all(El, "34S"),
+    El = str_remove_all(El, "17O"),
+    El = str_remove_all(El, "18O"),
+    El = str_remove_all(El, "15N"),
+    El = str_remove_all(El, "[0-9]"),
+    El = str_remove_all(El, " "))
+```
+
+(c) molecular class
+
+Next, we assign classes (aromatic, aliphatic, etc.). These are Van Krevelen classes, typically assigned based on the H/C, O/C, and AImod indices. 
+We calculate three sets of classes; users can use any of these, or assign their own classes as appropriate.
+
+1. `Class1` from [Kim et al. 2003](https://doi.org/10.1021/ac034415p) uses H/C and O/C to classify molecules into "lipid", "unsaturated hydrocarbon", "protein", "lignin", "carbohydrate", amino sugar", "tannin", and "condensed hydrocarbon"
+2. `Class2` from [Seidel et al. 2014](10.1016/j.gca.2014.05.038) uses H/C, O/C, and AImod to classify molecules into "aromatic", "condensed aromatic", "highly unsaturated compounds including polyphenols/lignins", and "aliphatic"
+3. `Class3` from [Seidel et al. 2017](10.1016/j.gca.2014.05.038) includes classes "aromatic", "condensed aromatic", "highly unsaturated compounds including polyphenols/lignins", "carbohydrate", "lipid", "aliphatic", and "aliphatic containing N".
+
+
+``` r
+mol = 
+  mol %>% 
+  mutate(
+    Class1 = case_when(HC >= 1.55 & HC <= 2.25 & OC >= 0 & OC <= 0.3 ~ "Lipid",
+                       HC >= 0.7 & HC <= 1.5 & OC >= 0.05 & OC <= 0.15 ~ "Unsat Hydrocarbon",
+                       HC >= 1.45 & HC <= 2 & OC >= 0.3 & OC <= 0.55 ~ "Protein",
+                       HC >= 0.81 & HC <= 1.45 & OC >= 0.28 & OC <= 0.65 ~ "Lignin",
+                       HC >= 1.48 & HC <= 2.15 & OC >= 0.68 & OC <= 1 ~ "Carbohydrate",
+                       HC >= 1.34 & HC <= 1.8 & OC >= 0.54 & OC <= 0.71 ~ "Amino Sugar",
+                       HC >= 0.7 & HC <= 1.3 & OC >= 0.65 & OC <= 1.05 ~ "Tannin",
+                       HC >= 0.3 & HC <= 0.81 & OC >= 0.12 & OC <= 0.7 ~ "Cond Hydrocarbon",
+                       TRUE ~ "Other"),
+    Class2 = case_when(AImod > 0.66 ~ "condensed aromatic",
+                       AImod <= 0.66 & AImod > 0.50 ~ "aromatic",
+                       AImod <= 0.50 & HC < 1.5 ~ "unsaturated/lignin",
+                       HC >= 1.5 ~ "aliphatic"),
+    Class2 = replace_na(Class2, "other"),
+    Class3 = case_when(AImod > 0.66 ~ "condensed aromatic",
+                       AImod <= 0.66 & AImod > 0.50 ~ "aromatic",
+                       AImod <= 0.50 & HC < 1.5 ~ "unsaturated/lignin",
+                       HC >= 2.0 & OC >= 0.9 ~ "carbohydrate",
+                       HC >= 2.0 & OC < 0.9 ~ "lipid",
+                       HC < 2.0 & HC >= 1.5 & N == 0 ~ "aliphatic",
+                       HC < 2.0 & HC >= 1.5 & N > 0 ~ "aliphatic+N")
+  )
+```
+
+---
+
+### Create `dat` file
+
+
+``` r
+dat = 
+  icr_report %>% 
+  dplyr::select(source, Molecular.Formula, Calculated.m.z, contains("Peak.Area")) %>% 
+  janitor::clean_names() %>% 
+  separate(source, sep = "_", into = c("icr", "Proposal_ID", "Sampling_Set", "Core_Section", "Rep")) %>% 
+  mutate(Rep = parse_number(Rep),
+         sample_name = paste0(Proposal_ID, "_", Sampling_Set, "_", Core_Section)) %>% 
+  dplyr::select(-icr)
+```
+
+
+#### 3 acquisitions
+
+Each sample contains a signal from 3 different instrument acquisitions, these need to be merged before we address extraction replicates. 
+
+
+``` r
+## acquisition reps
+
+dat_acq = 
+  dat %>% 
+  mutate(peak_area_1 = case_when(peak_area_1 > 0 ~ 1),
+         peak_area_2 = case_when(peak_area_2 > 0 ~ 1),
+         peak_area_3 = case_when(peak_area_3 > 0 ~ 1),
+         acquisition_count = peak_area_1 + peak_area_2 + peak_area_3,
+         acquisition_KEEP = acquisition_count >= 2) %>% 
+  filter(acquisition_KEEP) %>% 
+  dplyr::select(-c(contains("peak_area"), contains("acquisition")))
+```
+
+
+#### 3 replicates
+We have 3 extractions from each core section and site, the data from these extractions needs to be merged such that you can have one sample per site. Merge replicate extractions where you keep a molecular formula if it was present in at least 2 out of the 3 extraction replicates for that site and core location. 
+
+
+``` r
+## Now, we only select molecules that were identified in 2/3 of the total reps
+
+max_replicates = 
+  dat_acq %>% 
+  dplyr::select(sample_name, Proposal_ID, Sampling_Set, Core_Section, Rep) %>% 
+  distinct() %>% 
+  group_by(sample_name, Proposal_ID, Sampling_Set, Core_Section) %>% 
+  dplyr::summarise(total_reps = n()) 
+
+
+dat_reps = 
+  dat_acq %>% 
+  left_join(max_replicates) %>% 
+  group_by(Proposal_ID, Sampling_Set, Core_Section, molecular_formula) %>% 
+  dplyr::mutate(peak_reps = n()) %>%
+  ungroup() %>% 
+  mutate(KEEP = peak_reps >= (2/3) * total_reps) %>% 
+  filter(KEEP) %>% 
+  dplyr::select(-KEEP)
+
+dat_reps_keep = 
+  dat_reps %>% 
+  dplyr::select(-c(Rep, total_reps, peak_reps)) %>% 
+  distinct()
+```
+
+This is the list of all the peaks "present" (identified) in our samples.
+
+Now, combine this file with the `mol` file we generated above.
+
+
+
+``` r
+icr_processed = 
+  dat_reps_keep %>% 
+  left_join(mol)
+
+names(icr_processed)
+```
+
+```
+##  [1] "Proposal_ID"       "Sampling_Set"      "Core_Section"     
+##  [4] "molecular_formula" "calculated_m_z"    "sample_name"      
+##  [7] "C"                 "H"                 "O"                
+## [10] "N"                 "P"                 "S"                
+## [13] "AImod"             "NOSC"              "GFE"              
+## [16] "HC"                "OC"                "El"               
+## [19] "Class1"            "Class2"            "Class3"
+```
+
+``` r
+wide_data = icr_processed %>%
+  dplyr::select(-Proposal_ID,-Sampling_Set,-Core_Section,-calculated_m_z,
+                -C,-H,-O,-N,-P,-S,-AImod,-NOSC,-GFE,
+                -El,-Class1,-Class2,-Class3,-HC,-OC)
+
+wide_data <- icr_processed %>%
+  distinct(molecular_formula, sample_name) %>%  # Ensure unique combinations
+   mutate(value = 1) %>%  # Create an auxiliary column for 1s
+  pivot_wider(
+    names_from = sample_name,
+    values_from = value,
+    values_fill = list(value = 0)  # Fill with 0s where there's no association
+  )
+
+merged_fticr_data = as.data.frame(wide_data)
+row.names(merged_fticr_data) = merged_fticr_data$molecular_formula
+row.names(mol) = mol$molecular_formula
+
+merged_fticr_data = merged_fticr_data %>%
+  dplyr::select(-molecular_formula)
+```
+
+
+### Additional Clean up for Data analysis
+
+
+``` r
+# Extra cleaning if needed 
+# clean up missing peaks across all samples
+#merged_fticr_data = merged_fticr_data[-which(rowSums(merged_fticr_data) == 0),]
+
+# removing singletons (formulas found only in one site)
+singletons = apply(merged_fticr_data, 1, function(x) length(which(x > 0))) # identify
+merged_fticr_data = merged_fticr_data[-which(singletons == 1),]
+
+# making sure the columns match in the mol file
+mol <- mol[rownames(mol) %in% rownames(merged_fticr_data), ]
+```
+
+#### Calculate Average Molecular Indices in the merged file
+
+
+### Analyze data
+
+##### H1: TOP layer will be richer (total number of peaks with MF assigned), more diverse and higher WEOM concentration than BTM layer. Thus the TOP layer will have higher respiration than BTM.
+
+#### Richness
+Evaluate richness as the total number of molecular formula assigned within all top and bottom samples and do a boxplot where points are sample level total number of peaks categorically colors by top or bottom.
+
+
+``` r
+# Perform t-test to compare richness between TOP and BTM
+t_test_result <- t.test(total_formulas ~ Depth, data = mol_properties_average)
+
+# Define colorblind-friendly soil colors
+soil_colors <- c("TOP" = "#D2B48C", "BTM" = "#8B4513")  # Lighter brown for TOP, darker brown for BTM
+
+
+# Create the boxplot with statistical test
+plot <- ggplot(mol_properties_average, aes(x = Depth, y = total_formulas, fill = Depth)) +
+  geom_boxplot() +
+  labs(
+    title = "Molecular Formula Richness by Depth",
+    x = "Depth",
+    y = "Richness (Total Molecular Formulas)"
+  ) +
+  theme_bw() +
+  scale_fill_manual(values = soil_colors) +
+  stat_compare_means(comparisons = list(c("TOP", "BTM")), method = "t.test", label = "p.format")
+
+# Print the plot
+print(plot)
+```
+
+![](MONet_DOM_Data_Exploration_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
+
+#### Diversity in a multivariate space
+##### NMDS
+Use only peaks to plot and color by top and bottom in a NMDS space plot color by TOP and BTM
+## NMDS
+
+``` r
+set.seed(1988)
+#Run NMDS using Jaccard distance for the presence/absence data and bray-curtis for the hellinger(abundance data)
+dist = vegdist(x = t(merged_fticr_data), method = "jaccard") 
+
+# Plotting Jaccard NMDS
+nms = metaMDS(dist, trymax = 1000) # Determining NMDS
+```
+
+```
+## Run 0 stress 0.1282165 
+## Run 1 stress 0.1566924 
+## Run 2 stress 0.1583291 
+## Run 3 stress 0.1467381 
+## Run 4 stress 0.1438445 
+## Run 5 stress 0.1497867 
+## Run 6 stress 0.1404044 
+## Run 7 stress 0.1622588 
+## Run 8 stress 0.1282151 
+## ... New best solution
+## ... Procrustes: rmse 0.001131716  max resid 0.01231508 
+## Run 9 stress 0.1496669 
+## Run 10 stress 0.149848 
+## Run 11 stress 0.1576049 
+## Run 12 stress 0.1545095 
+## Run 13 stress 0.136324 
+## Run 14 stress 0.1441236 
+## Run 15 stress 0.1573141 
+## Run 16 stress 0.1365029 
+## Run 17 stress 0.1289475 
+## Run 18 stress 0.1549964 
+## Run 19 stress 0.1455138 
+## Run 20 stress 0.1392072 
+## Run 21 stress 0.137191 
+## Run 22 stress 0.1500721 
+## Run 23 stress 0.1571711 
+## Run 24 stress 0.1282233 
+## ... Procrustes: rmse 0.0005345422  max resid 0.005544958 
+## ... Similar to previous best
+## *** Best solution repeated 1 times
+```
+
+``` r
+nms = as.data.frame(scores(nms)) # Converting to scores
+factors = mol_properties_average %>% dplyr::select(Sample_ID,Depth)
+nms = cbind(factors, nms)
+
+#Perform PERMANOVA
+depth = as.factor(nms$Depth)
+permanova = adonis2(t(merged_fticr_data) ~ depth, method = "jaccard", permutations = 999)
+
+# Extract the p-value from the PERMANOVA results
+permanova_pvalue = permanova$`Pr(>F)`[1]
+
+#Plot
+plot <- nms %>%
+  ggplot(aes(x = NMDS1, y = NMDS2)) +
+  geom_point(aes(color = Depth), size = 4) +
+  stat_ellipse(aes(color = Depth), level = 0.95, linetype = 2) +
+  scale_color_manual(values = soil_colors) + 
+  theme_bw() +
+  theme(legend.position = "top") +
+  labs(
+    x = "NMDS Dimension 1",
+    y = "NMDS Dimension 2") +
+annotate("text", x = -Inf, y = -Inf, label = paste("PERMANOVA p-value =", format.pval(permanova_pvalue)), hjust = -0.1, vjust = -0.1)
+
+# Print the plot
+print(plot)
+```
+
+![](MONet_DOM_Data_Exploration_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
+
+#### PCA
+Use molecular characteristics (AImod, DBE, etc) as your matrix for a PCA to plot color by TOP and BTM
+
+``` r
+chemical_data = mol_properties_average %>%
+  dplyr::select(c(-Proposal_ID,-Sample_ID,-Depth, -Sample_number,-total_formulas, -Mean_P))
+
+pca_result <- prcomp(chemical_data, scale. = TRUE)
+
+# Create a data frame with PCA results
+pca_scores <- as.data.frame(pca_result$x)
+pca_loadings <- as.data.frame(pca_result$rotation)
+
+# Add PCA scores to factors
+pca_dat <- cbind(factors, pca_scores)
+
+# Calculate the percentage of variance explained by each PC
+percent_variance <- round(100 * pca_result$sdev^2 / sum(pca_result$sdev^2), 1)
+
+# Create the PCA plot with loadings as arrows
+pca_plot <- ggplot(pca_dat, aes(x = PC1, y = PC2, color = Depth)) +
+  geom_point(size = 3) +
+  scale_color_manual(values = soil_colors) +
+  theme_bw() +
+  labs( x = paste0("Principal Component 1 (", percent_variance[1], "%)"),
+       y = paste0("Principal Component 2 (", percent_variance[2], "%)")) +
+  theme(legend.position = "top") +
+  geom_segment(data = pca_loadings, aes(x = 0, y = 0, xend = PC1 * max(pca_scores$PC1),
+                                        yend = PC2 * max(pca_scores$PC2)), 
+               arrow = arrow(length = unit(0.3, "cm")), color = "darkred") +
+  geom_text(data = pca_loadings, aes(x = PC1 * max(pca_scores$PC1),
+                                     y = PC2 * max(pca_scores$PC2), 
+                                     label = rownames(pca_loadings)), color = "black", vjust = 1.5)
+
+print(pca_plot)
+```
+
+![](MONet_DOM_Data_Exploration_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
+
+
+#### Boxplot of WEOM     
+
+
+``` r
+biogeochem$Depth <- biogeochem$Core_Section
+biogeochem = biogeochem %>%
+  filter(!is.na(WEOM_TOC_mg_per_kg))
+
+biogeochem$Sample_combination = sub("_[^_]+_[^_]+$", "", biogeochem$Sample_Name)
+biogeochem$Sample_ID = sub("_[^_]+$", "", biogeochem$Sample_Name)
+
+# Generate the boxplot
+ggplot(biogeochem, aes(x = Sample_combination, y = as.numeric(`WEOM_TOC_mg_per_kg`), fill = Depth)) +
+  geom_bar(stat = 'identity') +
+  labs(x = '', y = "WEOM_TOC_mg_per_kg") +
+  theme_bw()+
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
+        axis.text.y = element_text(color = "black"),
+        axis.title.x = element_text(color = "black"),
+        axis.title.y = element_text(color = "black"),
+        plot.title = element_text(color = "black"),
+        legend.position = "top") +
+  scale_fill_manual(values = c("TOP" = "#D2B48C", "BTM" = "#8B4513"))  # Lighter brown for TOP, darker brown for BTM
+```
+
+![](MONet_DOM_Data_Exploration_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
+
+
+#### Correlations
+Correlation between richness(number of peaks with molecular formula assigned in a sample) and WEOM for each top and bottom. 
+
+Plotting Pearson correlations
+
+``` r
+data_cor = merge(mol_properties_average,biogeochem, by = c('Sample_ID','Depth'))
+data_cor = data_cor %>%
+  dplyr::select(Depth,total_formulas,WEOM_TOC_mg_per_kg)
+
+
+ggplot(data_cor, aes(x = total_formulas, y = WEOM_TOC_mg_per_kg)) + 
+  geom_point() +
+  facet_wrap(~ Depth, scales = 'free_y') +
+  labs( x = "Richness",
+       y = "WEOM_TOC_mg_per_kg") +
+  theme_bw() +
+    stat_cor(method = "pearson", aes(label = paste(..r.label.., ..p.label.., sep = "~`,`~")), label.x.npc = "left", label.y.npc = "top") +
+ theme(aspect.ratio = 1)
+```
+
+![](MONet_DOM_Data_Exploration_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
+
+#### Boxplot of GFE and NOSC
+[LaRowe and Van Cappellen, 2012](https://www.sciencedirect.com/science/article/pii/S0016703711000378) found an empirical relationship between the Gibbs Free Energy of C oxidation at standard state (GFE) and the nominal oxidation state of C (NOSC).*Lower values of GFE (i.e., lower magnitudes are more thermodynamically favorable.*
+
+![Image from LaRowe and Van Capellen 2012. Standard molal Gibbs energies of the oxidation half reactions of organic compounds as a function of the average nominal oxidation state of carbon (NOSC) in the compounds, at 25 °C and 1 bar. The Gibbs energies are expressed in kJ per mole of carbon (a) and kJ per mole of electrons transferred (b)](C:/Users/gara009/OneDrive - PNNL/Documents/GitHub/NEON-MONet/img/NOSCandGFE.jpg)
+
+
+
+``` r
+# Create the boxplot of mean values with statistical test
+# NOSC
+ggplot(mol_properties_average, aes(x = Depth, y = as.numeric(Mean_NOSC), fill = Depth)) +
+  geom_boxplot() +
+  labs(
+    title = "NOSC by Depth",
+    x = "Depth",
+    y = "Nominal oxidation State of C"
+  ) +
+  theme_bw() +
+  scale_fill_manual(values = soil_colors) +
+  stat_compare_means(comparisons = list(c("TOP", "BTM")), method = "t.test", label = "p.format")
+```
+
+![](MONet_DOM_Data_Exploration_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
+
+``` r
+# GFE
+ggplot(mol_properties_average, aes(x = Depth, y = as.numeric(Mean_GFE), fill = Depth)) +
+  geom_boxplot() +
+  labs(
+    title = "GFE by Depth",
+    x = "Depth",
+    y = "Gibbs free energy of C oxidation at standard state (kJ/mol C)"
+  ) +
+  theme_bw() +
+  scale_fill_manual(values = soil_colors) +
+  stat_compare_means(comparisons = list(c("TOP", "BTM")), method = "t.test", label = "p.format")
+```
+
+![](MONet_DOM_Data_Exploration_files/figure-html/unnamed-chunk-15-2.png)<!-- -->
+
+        
+#### WEOM Boxplots
+Looking at water extractable C across depths
+
+
+``` r
+# Create the main plot with zoom
+main_plot <- ggplot(biogeochem, aes(x = Depth, y = WEOM_TOC_mg_per_kg, fill = Depth)) +
+  geom_boxplot() +
+  labs(
+    x = "Depth",
+    y = "WEOM_TOC_mg_per_kg"
+  ) +
+  scale_fill_manual(values = soil_colors) +
+  theme_bw() +
+  stat_compare_means(comparisons = list(c("TOP", "BTM")), method = "t.test", label = "p.format") 
+
+print(main_plot)
+```
+
+![](MONet_DOM_Data_Exploration_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
+
