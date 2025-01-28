@@ -203,13 +203,13 @@ names(icr_processed)
 ```
 
 ```
-##  [1] "Proposal_ID"       "Sampling_Set"      "Core_Section"     
-##  [4] "molecular_formula" "calculated_m_z"    "sample_name"      
-##  [7] "C"                 "H"                 "O"                
-## [10] "N"                 "P"                 "S"                
-## [13] "AImod"             "NOSC"              "GFE"              
-## [16] "HC"                "OC"                "El"               
-## [19] "Class1"            "Class2"            "Class3"
+FALSE  [1] "Proposal_ID"       "Sampling_Set"      "Core_Section"     
+FALSE  [4] "molecular_formula" "calculated_m_z"    "sample_name"      
+FALSE  [7] "C"                 "H"                 "O"                
+FALSE [10] "N"                 "P"                 "S"                
+FALSE [13] "AImod"             "NOSC"              "GFE"              
+FALSE [16] "HC"                "OC"                "El"               
+FALSE [19] "Class1"            "Class2"            "Class3"
 ```
 
 ``` r
@@ -257,7 +257,7 @@ mol <- mol[rownames(mol) %in% rownames(merged_fticr_data), ]
 
 ### Analyze data
 
-##### H1: TOP layer will be richer (total number of peaks with MF assigned), more diverse and higher WEOM concentration than BTM layer. Thus the TOP layer will have higher respiration than BTM.
+##### H1: TOP layer will be richer (total number of peaks with MF assigned), more diverse and higher WEOM concentration than BTM layer.
 
 #### Richness
 Evaluate richness as the total number of molecular formula assigned within all top and bottom samples and do a boxplot where points are sample level total number of peaks categorically colors by top or bottom.
@@ -291,8 +291,9 @@ print(plot)
 
 #### Diversity in a multivariate space
 ##### NMDS
-Use only peaks to plot and color by top and bottom in a NMDS space plot color by TOP and BTM
-## NMDS
+Use only peaks to plot and color by top and bottom in a NMDS space plot color by TOP and BTM <br>
+
+#### NMDS
 
 ``` r
 set.seed(1988)
@@ -304,41 +305,43 @@ nms = metaMDS(dist, trymax = 1000) # Determining NMDS
 ```
 
 ```
-## Run 0 stress 0.1282165 
-## Run 1 stress 0.1566924 
-## Run 2 stress 0.1583291 
-## Run 3 stress 0.1467381 
-## Run 4 stress 0.1438445 
-## Run 5 stress 0.1497867 
-## Run 6 stress 0.1404044 
-## Run 7 stress 0.1622588 
-## Run 8 stress 0.1282151 
-## ... New best solution
-## ... Procrustes: rmse 0.001131716  max resid 0.01231508 
-## Run 9 stress 0.1496669 
-## Run 10 stress 0.149848 
-## Run 11 stress 0.1576049 
-## Run 12 stress 0.1545095 
-## Run 13 stress 0.136324 
-## Run 14 stress 0.1441236 
-## Run 15 stress 0.1573141 
-## Run 16 stress 0.1365029 
-## Run 17 stress 0.1289475 
-## Run 18 stress 0.1549964 
-## Run 19 stress 0.1455138 
-## Run 20 stress 0.1392072 
-## Run 21 stress 0.137191 
-## Run 22 stress 0.1500721 
-## Run 23 stress 0.1571711 
-## Run 24 stress 0.1282233 
-## ... Procrustes: rmse 0.0005345422  max resid 0.005544958 
-## ... Similar to previous best
-## *** Best solution repeated 1 times
+FALSE Run 0 stress 0.1282165 
+FALSE Run 1 stress 0.1566924 
+FALSE Run 2 stress 0.1583291 
+FALSE Run 3 stress 0.1467381 
+FALSE Run 4 stress 0.1438445 
+FALSE Run 5 stress 0.1497867 
+FALSE Run 6 stress 0.1404044 
+FALSE Run 7 stress 0.1622588 
+FALSE Run 8 stress 0.1282151 
+FALSE ... New best solution
+FALSE ... Procrustes: rmse 0.001131716  max resid 0.01231508 
+FALSE Run 9 stress 0.1496669 
+FALSE Run 10 stress 0.149848 
+FALSE Run 11 stress 0.1576049 
+FALSE Run 12 stress 0.1545095 
+FALSE Run 13 stress 0.136324 
+FALSE Run 14 stress 0.1441236 
+FALSE Run 15 stress 0.1573141 
+FALSE Run 16 stress 0.1365029 
+FALSE Run 17 stress 0.1289475 
+FALSE Run 18 stress 0.1549964 
+FALSE Run 19 stress 0.1455138 
+FALSE Run 20 stress 0.1392072 
+FALSE Run 21 stress 0.137191 
+FALSE Run 22 stress 0.1500721 
+FALSE Run 23 stress 0.1571711 
+FALSE Run 24 stress 0.1282233 
+FALSE ... Procrustes: rmse 0.0005345422  max resid 0.005544958 
+FALSE ... Similar to previous best
+FALSE *** Best solution repeated 1 times
 ```
 
 ``` r
 nms = as.data.frame(scores(nms)) # Converting to scores
 factors = mol_properties_average %>% dplyr::select(Sample_ID,Depth)
+factors$Sample_Set = gsub('_BTM|_TOP','',factors$Sample_ID)
+factors = merge(factors,metadata, by = 'Sample_Set')
 nms = cbind(factors, nms)
 
 #Perform PERMANOVA
@@ -366,6 +369,24 @@ print(plot)
 ```
 
 ![](MONet_DOM_Data_Exploration_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
+
+``` r
+plot2 <- nms %>%
+  ggplot(aes(x = NMDS1, y = NMDS2)) +
+  geom_point(aes(color = Ecoregion,shape = Depth), size = 4) +
+  stat_ellipse(aes(color = Ecoregion), level = 0.95, linetype = 2) +
+  theme_bw() +
+  theme(legend.position = "top") +
+  labs(
+    x = "NMDS Dimension 1",
+    y = "NMDS Dimension 2") +
+annotate("text", x = -Inf, y = -Inf, label = paste("PERMANOVA p-value =", format.pval(permanova_pvalue)), hjust = -0.1, vjust = -0.1)
+
+# Print the plot
+print(plot2)
+```
+
+![](MONet_DOM_Data_Exploration_files/figure-html/unnamed-chunk-11-2.png)<!-- -->
 
 #### PCA
 Use molecular characteristics (AImod, DBE, etc) as your matrix for a PCA to plot color by TOP and BTM
@@ -405,6 +426,25 @@ print(pca_plot)
 ```
 
 ![](MONet_DOM_Data_Exploration_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
+
+``` r
+pca_plot2 <- ggplot(pca_dat, aes(x = PC1, y = PC2, color = Ecoregion)) +
+  geom_point(size = 3) +
+  theme_bw() +
+  labs( x = paste0("Principal Component 1 (", percent_variance[1], "%)"),
+       y = paste0("Principal Component 2 (", percent_variance[2], "%)")) +
+  theme(legend.position = "top") +
+  geom_segment(data = pca_loadings, aes(x = 0, y = 0, xend = PC1 * max(pca_scores$PC1),
+                                        yend = PC2 * max(pca_scores$PC2)), 
+               arrow = arrow(length = unit(0.3, "cm")), color = "darkred") +
+  geom_text(data = pca_loadings, aes(x = PC1 * max(pca_scores$PC1),
+                                     y = PC2 * max(pca_scores$PC2), 
+                                     label = rownames(pca_loadings)), color = "black", vjust = 1.5)
+
+print(pca_plot2)
+```
+
+![](MONet_DOM_Data_Exploration_files/figure-html/unnamed-chunk-12-2.png)<!-- -->
 
 
 #### Boxplot of WEOM     
@@ -459,7 +499,7 @@ ggplot(data_cor, aes(x = total_formulas, y = WEOM_TOC_mg_per_kg)) +
 ![](MONet_DOM_Data_Exploration_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
 
 #### Boxplot of GFE and NOSC
-[LaRowe and Van Cappellen, 2012](https://www.sciencedirect.com/science/article/pii/S0016703711000378) found an empirical relationship between the Gibbs Free Energy of C oxidation at standard state (GFE) and the nominal oxidation state of C (NOSC).*Lower values of GFE (i.e., lower magnitudes are more thermodynamically favorable.*
+[LaRowe and Van Cappellen, 2012](https://www.sciencedirect.com/science/article/pii/S0016703711000378) found an empirical relationship between the Gibbs Free Energy of C oxidation at standard state (GFE) and the nominal oxidation state of C (NOSC).*Lower values of GFE (i.e., lower magnitudes are more thermodynamically favorable.)*
 
 ![Image from LaRowe and Van Capellen 2012. Standard molal Gibbs energies of the oxidation half reactions of organic compounds as a function of the average nominal oxidation state of carbon (NOSC) in the compounds, at 25 °C and 1 bar. The Gibbs energies are expressed in kJ per mole of carbon (a) and kJ per mole of electrons transferred (b)](C:/Users/gara009/OneDrive - PNNL/Documents/GitHub/NEON-MONet/img/NOSCandGFE.jpg)
 
