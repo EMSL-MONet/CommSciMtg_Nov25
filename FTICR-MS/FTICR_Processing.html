@@ -443,12 +443,51 @@ display: none;
 </div>
 
 
-<div id="r-markdown" class="section level2">
-<h2>R Markdown</h2>
-<div id="import-and-combine-data" class="section level4">
-<h4>Import and combine data</h4>
-<pre class="r"><code>## Each sample has 3 replicates, compressed in a single zip file.
-## This script will extract all the zip files in the target folder (creating temporary files) and import and combine them into a single dataframe.
+<p>This tutorial is intended to allow participants to become familiar
+with FT-ICR-MS data, including importing and processing, and basic
+exploratory visualization.</p>
+<p>This RMarkdown document contains code and scripts for preliminary
+processing and data visualization of soil biogeochemistry data. These
+graphs were created for use in Session 3 (Biogeochemistry Data Tutorial)
+on Tuesday, November 7.</p>
+<blockquote>
+<p><strong>USING THIS TUTORIAL</strong><br />
+Download the <a href="https://github.com/EMSL-MONet/CommSciMtg_Nov25/tree/main/FTICR-MS/FTICR_Processing_data">FTICR_Processing_data</a>
+folder.<br />
+Create a new R Script file and save it in the <strong>same</strong>
+folder as the data files. Make sure all these files are saved in the
+same folder, to minimize errors with file paths.</p>
+</blockquote>
+<blockquote>
+<p>This file is a Markdown report, which includes text as well as code
+chunks. You can copy the R code directly from these chunks and paste it
+into your R Script file.</p>
+</blockquote>
+<hr />
+<div id="setup" class="section level2">
+<h2>Setup</h2>
+</div>
+<div id="load-packages" class="section level2">
+<h2>Load packages</h2>
+<p>You will need the <code>{tidyverse}</code> set of packages to run
+this tutorial. The <code>tidyverse</code> includes packages like
+<code>{dplyr}</code> and <code>{tidyr}</code> for data wrangling, and
+<code>{ggplot2}</code> for data visualization.</p>
+</div>
+<div id="import-and-combine-data" class="section level2">
+<h2>Import and combine data</h2>
+<p>For this tutorial, we will work with the following 2 cores:</p>
+<ol style="list-style-type: decimal">
+<li>60846_12</li>
+<li>60880_3</li>
+</ol>
+<p>Each core was split into “TOP” and “BTM” depths, so we have a total
+of 4 samples for this tutorial.</p>
+<p>Each sample was analyzed in triplicate – all three analytical
+replicates are in a single zip file per sample.<br />
+We will import all the files and combine them into a single
+dataframe.</p>
+<pre class="r"><code>## This script will extract all the zip files in the target folder (creating temporary files) and import and combine them into a single dataframe.
 ## Finally, we will delete the temporary files.
 
 import_files = function(FILEPATH){
@@ -477,45 +516,111 @@ import_files = function(FILEPATH){
 }
 
 icr_report = import_files(&quot;FTICR-MS/FTICR_Processing_data&quot;)</code></pre>
-<p>This contains a lot of info – we do not need all these columns!</p>
+<p>This contains a lot of info – we do not need all these columns! In
+the steps below, we will select only the necessary columns.</p>
+<pre class="r"><code>names(icr_report)</code></pre>
+<pre><code>##  [1] &quot;Index&quot;                     &quot;Molecular.Formula&quot;        
+##  [3] &quot;m.z.1&quot;                     &quot;m.z.2&quot;                    
+##  [5] &quot;m.z.3&quot;                     &quot;Calibrated.m.z.1&quot;         
+##  [7] &quot;Calibrated.m.z.2&quot;          &quot;Calibrated.m.z.3&quot;         
+##  [9] &quot;m.z.Error.Score.1&quot;         &quot;m.z.Error.Score.2&quot;        
+## [11] &quot;m.z.Error.Score.3&quot;         &quot;m.z.Error..ppm..1&quot;        
+## [13] &quot;m.z.Error..ppm..2&quot;         &quot;m.z.Error..ppm..3&quot;        
+## [15] &quot;Isotopologue.Similarity.1&quot; &quot;Isotopologue.Similarity.2&quot;
+## [17] &quot;Isotopologue.Similarity.3&quot; &quot;Resolving.Power.1&quot;        
+## [19] &quot;Resolving.Power.1.1&quot;       &quot;Resolving.Power.1.2&quot;      
+## [21] &quot;Confidence.Score.1&quot;        &quot;Confidence.Score.2&quot;       
+## [23] &quot;Confidence.Score.3&quot;        &quot;S.N.1&quot;                    
+## [25] &quot;S.N.2&quot;                     &quot;S.N.3&quot;                    
+## [27] &quot;Peak.Height.1&quot;             &quot;Peak.Height.2&quot;            
+## [29] &quot;Peak.Height.3&quot;             &quot;Peak.Area.1&quot;              
+## [31] &quot;Peak.Area.2&quot;               &quot;Peak.Area.3&quot;              
+## [33] &quot;Calculated.m.z&quot;            &quot;H.C&quot;                      
+## [35] &quot;O.C&quot;                       &quot;DBE&quot;                      
+## [37] &quot;Ion.Charge&quot;                &quot;C&quot;                        
+## [39] &quot;H&quot;                         &quot;O&quot;                        
+## [41] &quot;N&quot;                         &quot;P&quot;                        
+## [43] &quot;S&quot;                         &quot;X13C&quot;                     
+## [45] &quot;X18O&quot;                      &quot;X33S&quot;                     
+## [47] &quot;X34S&quot;                      &quot;Is.Isotopologue&quot;          
+## [49] &quot;source&quot;</code></pre>
 <p>Step 1 is to split this file into two: (a) <code>mol</code> file,
 which has info for each molecule/peak; and (b) <code>dat</code> file,
 which has data about the samples</p>
-</div>
 <div id="create-molecular-metadata-file" class="section level4">
 <h4>Create molecular metadata file</h4>
+<p>This dataframe contains information pertaining to each peak,
+including the molecular formula and other molecular indices.<br />
+We first select only the columns with atomic composition.</p>
 <pre class="r"><code>mol = 
   icr_report %&gt;% 
   dplyr::select(`Molecular.Formula`, C,H,O,N,P,S) %&gt;% 
   rename(molecular_formula = `Molecular.Formula`) %&gt;% 
   distinct()</code></pre>
-<p>Now, we want to process the <code>mol</code> file and calculate a
-bunch of indices</p>
+<p>Now, we want to process the <code>mol</code> file and calculate
+various indices</p>
 <ol style="list-style-type: lower-alpha">
 <li>indices</li>
 </ol>
+<ul>
+<li>AImod (aromatic index), for the identification of aromatic and
+condensed aromatic structures. This calculated based on <a href="https://doi.org/10.1002/rcm.7433">Koch and Dittmar (2016)</a></li>
+<li>NOSC (nominal oxidation state of carbon), which can give insight
+into potential thermodynamics. This is calculated based on <a href="https://doi.org/10.1021/es203901u">Riedel et al. 2012</a></li>
+<li>GFE (Gibbs Free Energy of carbon oxidation), calculated from NOSC,
+as per <a href="https://doi.org/10.1016/j.gca.2011.01.020">LaRowe &amp;
+Van Cappellen 2011</a></li>
+<li>H/C, or the ratio of hydrogen to carbon in the molecule</li>
+<li>O/C, or the ratio of oxygen to carbon in the molecule</li>
+</ul>
 <pre class="r"><code>mol = 
   mol %&gt;% 
   mutate(across(c(&quot;N&quot;,&quot;S&quot;,&quot;P&quot;), ~replace_na(.,0)),
          AImod = round((1 + C - (0.5*O) - S - (0.5 * (N+P+H)))/(C - (0.5*O) - S - N - P), 4),
-         NOSC =  round(4-(((4*C) + H - (3*N) - (2*O) - (2*S))/C), 4),
-         GFE = 60.3-(28.5 * NOSC),
          AImod = ifelse(is.na(AImod), 0, AImod),
          AImod = ifelse(AImod == &quot;Inf&quot;, 0, AImod),
          AImod = ifelse(AImod == &quot;-Inf&quot;, 0, AImod),
+         NOSC =  round(4-(((4*C) + H - (3*N) - (2*O) - (2*S))/C), 4),
+         GFE = 60.3-(28.5 * NOSC),
          HC = round(H/C, 2),
          OC = round(O/C, 2)
   )</code></pre>
 <ol start="2" style="list-style-type: lower-alpha">
 <li>Elemental class</li>
 </ol>
+<p>We can also group the molecules based on the elemental composition,
+i.e. “CHO”, “CHONS”, “CHONP”, “CHONPS” classes</p>
 <pre class="r"><code>mol = 
   mol %&gt;% 
   mutate(
-    El = str_remove_all(molecular_formula, &quot;[0-9]&quot;),
+    El = str_remove_all(molecular_formula, &quot;13C&quot;),
+    El = str_remove_all(El, &quot;34S&quot;),
+    El = str_remove_all(El, &quot;17O&quot;),
+    El = str_remove_all(El, &quot;18O&quot;),
+    El = str_remove_all(El, &quot;15N&quot;),
+    El = str_remove_all(El, &quot;[0-9]&quot;),
     El = str_remove_all(El, &quot; &quot;))</code></pre>
 <ol start="3" style="list-style-type: lower-alpha">
 <li>molecular class</li>
+</ol>
+<p>Next, we assign classes (aromatic, aliphatic, etc.). These are Van
+Krevelen classes, typically assigned based on the H/C, O/C, and AImod
+indices.<br />
+We calculate three sets of classes; users can use any of these, or
+assign their own classes as appropriate.</p>
+<ol style="list-style-type: decimal">
+<li><code>Class1</code> from <a href="https://doi.org/10.1021/ac034415p">Kim et al. 2003</a> uses H/C
+and O/C to classify molecules into “lipid”, “unsaturated hydrocarbon”,
+“protein”, “lignin”, “carbohydrate”, amino sugar”, “tannin”, and
+“condensed hydrocarbon”</li>
+<li><code>Class2</code> from <a href="10.1016/j.gca.2014.05.038">Seidel
+et al. 2014</a> uses H/C, O/C, and AImod to classify molecules into
+“aromatic”, “condensed aromatic”, “highly unsaturated compounds
+including polyphenols/lignins”, and “aliphatic”</li>
+<li><code>Class3</code> from <a href="10.1016/j.gca.2014.05.038">Seidel
+et al. 2017</a> includes classes “aromatic”, “condensed aromatic”,
+“highly unsaturated compounds including polyphenols/lignins”,
+“carbohydrate”, “lipid”, “aliphatic”, and “aliphatic containing N”.</li>
 </ol>
 <pre class="r"><code>mol = 
   mol %&gt;% 
@@ -544,6 +649,13 @@ bunch of indices</p>
   )</code></pre>
 <p>this file now contains most of the info needed to interpret the data
 across different samples.</p>
+<pre class="r"><code>names(mol)</code></pre>
+<pre><code>##  [1] &quot;molecular_formula&quot; &quot;C&quot;                 &quot;H&quot;                
+##  [4] &quot;O&quot;                 &quot;N&quot;                 &quot;P&quot;                
+##  [7] &quot;S&quot;                 &quot;AImod&quot;             &quot;NOSC&quot;             
+## [10] &quot;GFE&quot;               &quot;HC&quot;                &quot;OC&quot;               
+## [13] &quot;El&quot;                &quot;Class1&quot;            &quot;Class2&quot;           
+## [16] &quot;Class3&quot;</code></pre>
 <hr />
 </div>
 <div id="create-dat-file" class="section level4">

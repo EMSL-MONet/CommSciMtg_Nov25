@@ -9,17 +9,49 @@ output:
 
 
 
+This tutorial is intended to allow participants to become familiar with FT-ICR-MS data, including importing and processing, and basic exploratory visualization. 
+
+This RMarkdown document contains code and scripts for preliminary processing and data visualization of soil biogeochemistry data. 
+These graphs were created for use in Session 3 (Biogeochemistry Data Tutorial) on Tuesday, November 7.
+
+
+> **USING THIS TUTORIAL**  
+Download the [FTICR_Processing_data](https://github.com/EMSL-MONet/CommSciMtg_Nov25/tree/main/FTICR-MS/FTICR_Processing_data) folder.  
+Create a new R Script file and save it in the **same** folder as the data files. 
+Make sure all these files are saved in the same folder, to minimize errors with file paths.
+
+
+> This file is a Markdown report, which includes text as well as code chunks. You can copy the R code directly from these chunks and paste it into your R Script file. 
+
+
+---
+
+## Setup
+
+## Load packages
+
+You will need the `{tidyverse}` set of packages to run this tutorial. 
+The `tidyverse` includes packages like `{dplyr}` and `{tidyr}` for data wrangling, and `{ggplot2}` for data visualization.
 
 
 
 
-## R Markdown
 
-#### Import and combine data
+## Import and combine data
+
+For this tutorial, we will work with the following 2 cores:
+
+1. 60846_12
+2. 60880_3
+
+Each core was split into "TOP" and "BTM" depths, so we have a total of 4 samples for this tutorial.
+
+
+Each sample was analyzed in triplicate -- all three analytical replicates are in a single zip file per sample.  
+We will import all the files and combine them into a single dataframe.
 
 
 ```r
-## Each sample has 3 replicates, compressed in a single zip file.
 ## This script will extract all the zip files in the target folder (creating temporary files) and import and combine them into a single dataframe.
 ## Finally, we will delete the temporary files.
 
@@ -52,12 +84,49 @@ icr_report = import_files("FTICR-MS/FTICR_Processing_data")
 ```
 
 
-This contains a lot of info -- we do not need all these columns!
+This contains a lot of info -- we do not need all these columns! In the steps below, we will select only the necessary columns.
+
+
+```r
+names(icr_report)
+```
+
+```
+##  [1] "Index"                     "Molecular.Formula"        
+##  [3] "m.z.1"                     "m.z.2"                    
+##  [5] "m.z.3"                     "Calibrated.m.z.1"         
+##  [7] "Calibrated.m.z.2"          "Calibrated.m.z.3"         
+##  [9] "m.z.Error.Score.1"         "m.z.Error.Score.2"        
+## [11] "m.z.Error.Score.3"         "m.z.Error..ppm..1"        
+## [13] "m.z.Error..ppm..2"         "m.z.Error..ppm..3"        
+## [15] "Isotopologue.Similarity.1" "Isotopologue.Similarity.2"
+## [17] "Isotopologue.Similarity.3" "Resolving.Power.1"        
+## [19] "Resolving.Power.1.1"       "Resolving.Power.1.2"      
+## [21] "Confidence.Score.1"        "Confidence.Score.2"       
+## [23] "Confidence.Score.3"        "S.N.1"                    
+## [25] "S.N.2"                     "S.N.3"                    
+## [27] "Peak.Height.1"             "Peak.Height.2"            
+## [29] "Peak.Height.3"             "Peak.Area.1"              
+## [31] "Peak.Area.2"               "Peak.Area.3"              
+## [33] "Calculated.m.z"            "H.C"                      
+## [35] "O.C"                       "DBE"                      
+## [37] "Ion.Charge"                "C"                        
+## [39] "H"                         "O"                        
+## [41] "N"                         "P"                        
+## [43] "S"                         "X13C"                     
+## [45] "X18O"                      "X33S"                     
+## [47] "X34S"                      "Is.Isotopologue"          
+## [49] "source"
+```
+
 
 Step 1 is to split this file into two: (a) `mol` file, which has info for each molecule/peak; and (b) `dat` file, which has data about the samples
 
 
 #### Create molecular metadata file
+
+This dataframe contains information pertaining to each peak, including the molecular formula and other molecular indices.  
+We first select only the columns with atomic composition.
 
 
 ```r
@@ -68,10 +137,15 @@ mol =
   distinct()
 ```
 
-Now, we want to process the `mol` file and calculate a bunch of indices
-
+Now, we want to process the `mol` file and calculate various indices
 
 (a) indices
+
+- AImod (aromatic index), for the identification of aromatic and condensed aromatic structures. This calculated based on [Koch and Dittmar (2016)](https://doi.org/10.1002/rcm.7433)
+- NOSC (nominal oxidation state of carbon), which can give insight into potential thermodynamics. This is calculated based on [Riedel et al. 2012](https://doi.org/10.1021/es203901u)
+- GFE (Gibbs Free Energy of carbon oxidation), calculated from NOSC, as per [LaRowe & Van Cappellen 2011](https://doi.org/10.1016/j.gca.2011.01.020)
+- H/C, or the ratio of hydrogen to carbon in the molecule
+- O/C, or the ratio of oxygen to carbon in the molecule
 
 
 ```r
@@ -79,11 +153,11 @@ mol =
   mol %>% 
   mutate(across(c("N","S","P"), ~replace_na(.,0)),
          AImod = round((1 + C - (0.5*O) - S - (0.5 * (N+P+H)))/(C - (0.5*O) - S - N - P), 4),
-         NOSC =  round(4-(((4*C) + H - (3*N) - (2*O) - (2*S))/C), 4),
-         GFE = 60.3-(28.5 * NOSC),
          AImod = ifelse(is.na(AImod), 0, AImod),
          AImod = ifelse(AImod == "Inf", 0, AImod),
          AImod = ifelse(AImod == "-Inf", 0, AImod),
+         NOSC =  round(4-(((4*C) + H - (3*N) - (2*O) - (2*S))/C), 4),
+         GFE = 60.3-(28.5 * NOSC),
          HC = round(H/C, 2),
          OC = round(O/C, 2)
   )
@@ -91,16 +165,30 @@ mol =
 
 (b) Elemental class
 
+We can also group the molecules based on the elemental composition, i.e. "CHO", "CHONS", "CHONP", "CHONPS" classes
+
 
 ```r
 mol = 
   mol %>% 
   mutate(
-    El = str_remove_all(molecular_formula, "[0-9]"),
+    El = str_remove_all(molecular_formula, "13C"),
+    El = str_remove_all(El, "34S"),
+    El = str_remove_all(El, "17O"),
+    El = str_remove_all(El, "18O"),
+    El = str_remove_all(El, "15N"),
+    El = str_remove_all(El, "[0-9]"),
     El = str_remove_all(El, " "))
 ```
 
 (c) molecular class
+
+Next, we assign classes (aromatic, aliphatic, etc.). These are Van Krevelen classes, typically assigned based on the H/C, O/C, and AImod indices.   
+We calculate three sets of classes; users can use any of these, or assign their own classes as appropriate.
+
+1. `Class1` from [Kim et al. 2003](https://doi.org/10.1021/ac034415p) uses H/C and O/C to classify molecules into "lipid", "unsaturated hydrocarbon", "protein", "lignin", "carbohydrate", amino sugar", "tannin", and "condensed hydrocarbon"
+2. `Class2` from [Seidel et al. 2014](10.1016/j.gca.2014.05.038) uses H/C, O/C, and AImod to classify molecules into "aromatic", "condensed aromatic", "highly unsaturated compounds including polyphenols/lignins", and "aliphatic"
+3. `Class3` from [Seidel et al. 2017](10.1016/j.gca.2014.05.038) includes classes "aromatic", "condensed aromatic", "highly unsaturated compounds including polyphenols/lignins", "carbohydrate", "lipid", "aliphatic", and "aliphatic containing N".
 
 
 ```r
@@ -133,6 +221,20 @@ mol =
 
 
 this file now contains most of the info needed to interpret the data across different samples.
+
+
+```r
+names(mol)
+```
+
+```
+##  [1] "molecular_formula" "C"                 "H"                
+##  [4] "O"                 "N"                 "P"                
+##  [7] "S"                 "AImod"             "NOSC"             
+## [10] "GFE"               "HC"                "OC"               
+## [13] "El"                "Class1"            "Class2"           
+## [16] "Class3"
+```
 
 ---
 
@@ -256,7 +358,7 @@ vk3 =
 cowplot::plot_grid(vk1, vk2, vk3)
 ```
 
-![](FTICR_Processing_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
+![](FTICR_Processing_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
 
 
 ## VK Patterns in samples
@@ -269,7 +371,7 @@ icr_processed %>%
   facet_wrap(~ sample_name)
 ```
 
-![](FTICR_Processing_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
+![](FTICR_Processing_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
 
 ## unique peaks
 
@@ -290,7 +392,7 @@ unique_top %>%
   facet_wrap(~ Proposal_ID + Sampling_Set)  
 ```
 
-![](FTICR_Processing_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
+![](FTICR_Processing_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
 
 
 comparing sites
@@ -310,7 +412,7 @@ unique_site %>%
   stat_ellipse(level = 0.90, linewidth = 1, aes(group = Proposal_ID), color = "black")
 ```
 
-![](FTICR_Processing_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
+![](FTICR_Processing_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
 
 
 
@@ -321,7 +423,7 @@ icr_processed %>%
   facet_wrap(~Proposal_ID)
 ```
 
-![](FTICR_Processing_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
+![](FTICR_Processing_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
 
 ```r
 icr_processed %>% 
@@ -331,7 +433,7 @@ icr_processed %>%
   facet_wrap(~Proposal_ID)
 ```
 
-![](FTICR_Processing_files/figure-html/unnamed-chunk-13-2.png)<!-- -->
+![](FTICR_Processing_files/figure-html/unnamed-chunk-15-2.png)<!-- -->
 
 
 ### relative abundance
@@ -353,5 +455,5 @@ relabund %>%
   facet_wrap(~Proposal_ID)
 ```
 
-![](FTICR_Processing_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
+![](FTICR_Processing_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
 
