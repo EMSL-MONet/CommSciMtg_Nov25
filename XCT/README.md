@@ -52,8 +52,9 @@ Learn the following steps with image processing.
 * Segmented porosity from soil data
 * Visualized pore structure
 
-### See Data Tutorial presentation in Session 3: 
+### See These Presentation in Sessions 2 and 4 and : 
 
-* Tutorial 2 - XCT data processing and analysis for insights into soil microstructure
+* Session 2 presentation - XCT data processing and analysis for insights into soil microstructure
+* Session 4 tutorial - XCT Data: "MONet CSM-2025 - XCT Tutorial_Tamas-Billy.pptx"
 
 
