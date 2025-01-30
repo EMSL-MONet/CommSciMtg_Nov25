@@ -1,9 +1,8 @@
 ---
-title: "FTICR_Monet_Processing"
-date: "2025-04-06"
+title: "MONet: FTICR hands on tutorial -- I"
+date: "2025-02-06"
 output: 
   html_document:
-    keep_md: yes
     code_folding: hide
 ---
 
@@ -15,17 +14,12 @@ knitr::opts_chunk$set(echo = TRUE,
 
 This tutorial is intended to allow participants to become familiar with FT-ICR-MS data, including importing and processing, and basic exploratory visualization. 
 
-This RMarkdown document contains code and scripts for preliminary processing and data visualization of soil biogeochemistry data. 
-These graphs were created for use in Session 3 (Biogeochemistry Data Tutorial) on Tuesday, November 7.
-
 
 > **USING THIS TUTORIAL**  
-Download the [FTICR_Processing_data](https://github.com/EMSL-MONet/CommSciMtg_Nov25/tree/main/FTICR-MS/FTICR_Processing_data) folder.  
-Create a new R Script file and save it in the **same** folder as the data files. 
-Make sure all these files are saved in the same folder, to minimize errors with file paths.
-
-
-> This file is a Markdown report, which includes text as well as code chunks. You can copy the R code directly from these chunks and paste it into your R Script file. 
+This .Rmd markdown file is intended to be a self-contained tutorial with text and code. 
+If you downloaded the fticr_tutorial.zip file from the GitHub repo, you should have example data files in the `FTICR_data` folder. 
+Load the .Rmd file in RStudio and run each code chunk to follow along. 
+Or, click the "Knit" button within RStudio to generate the full report.
 
 
 ---
@@ -38,7 +32,7 @@ You will need the `{tidyverse}` set of packages to run this tutorial.
 The `tidyverse` includes packages like `{dplyr}` and `{tidyr}` for data wrangling, and `{ggplot2}` for data visualization.
 
 
-```{r setup2, include=FALSE}
+```{r setup2}
 
 library(tidyverse)
 theme_set(theme_bw(base_size = 14))
@@ -46,7 +40,7 @@ theme_set(theme_bw(base_size = 14))
 ```
 
 
-## Import and combine data
+# I. Import and combine data
 
 For this tutorial, we will work with the following 2 cores:
 
@@ -59,13 +53,14 @@ Each core was split into "TOP" and "BTM" depths, so we have a total of 4 samples
 Each sample was analyzed in triplicate -- all three analytical replicates are in a single zip file per sample.  
 We will import all the files and combine them into a single dataframe.
 
+
 ```{r import}
 
 ## This script will extract all the zip files in the target folder (creating temporary files) and import and combine them into a single dataframe.
 ## Finally, we will delete the temporary files.
 
 import_files = function(FILEPATH){
-
+  
   # identify the .zip files and unzip them as csv files
   # the csv files will be saved in the parent directory (these are temporary files, will be deleted at the end)
   zip_filePaths <- list.files(path = FILEPATH, pattern = ".zip", full.names = TRUE, recursive = TRUE)
@@ -84,15 +79,17 @@ import_files = function(FILEPATH){
   
   # finally, delete the temporary files from the parent directory
   file.remove(csv_filePaths)
-
+  
   # this is our final output
   icr_dat
 }
 
 icr_report = import_files("FTICR-MS/FTICR_Processing_data")
+
+print("data files imported")
 ```
 
-## Initial cleaning
+# II. Initial cleaning
 
 This contains a lot of info -- we do not need all these columns! In the steps below, we will select only the necessary columns.
 
@@ -104,7 +101,7 @@ names(icr_report)
 Step 1 is to split this file into two: (a) `mol` file, which has info for each molecule/peak; and (b) `dat` file, which has data about the samples
 
 
-### Create molecular metadata file
+### Create molecular metadata file (`mol`)
 
 This dataframe contains information pertaining to each peak, including the molecular formula and other molecular indices.  
 We first select only the columns with atomic composition.
@@ -117,6 +114,7 @@ mol =
   rename(molecular_formula = `Molecular.Formula`) %>% 
   distinct()
 
+names(mol)
 ```
 
 Now, we want to process the `mol` file and calculate various indices
@@ -133,17 +131,19 @@ Now, we want to process the `mol` file and calculate various indices
 
 mol = 
   mol %>% 
-  mutate(across(c("N","S","P"), ~replace_na(.,0)),
+  mutate(across(c("N","S","P"), ~replace_na(.,0)), # convert all blank cells to 0 to help with calculations
          AImod = round((1 + C - (0.5*O) - S - (0.5 * (N+P+H)))/(C - (0.5*O) - S - N - P), 4),
+         # some AImod values may be NA, or Inf, or -Inf. Change those to 0
          AImod = ifelse(is.na(AImod), 0, AImod),
          AImod = ifelse(AImod == "Inf", 0, AImod),
          AImod = ifelse(AImod == "-Inf", 0, AImod),
          NOSC =  round(4-(((4*C) + H - (3*N) - (2*O) - (2*S))/C), 4),
-         GFE = 60.3-(28.5 * NOSC),
+         GFE = 60.3 - (28.5 * NOSC),
          HC = round(H/C, 2),
          OC = round(O/C, 2)
   )
 
+names(mol)
 ```
 
 (b) Elemental class
@@ -154,14 +154,17 @@ We can also group the molecules based on the elemental composition, i.e. "CHO", 
 mol = 
   mol %>% 
   mutate(
+    # we need to drop any isotopic info (13C, 34S, etc.)
     El = str_remove_all(molecular_formula, "13C"),
     El = str_remove_all(El, "34S"),
     El = str_remove_all(El, "17O"),
     El = str_remove_all(El, "18O"),
     El = str_remove_all(El, "15N"),
+    # remove any numbers from the formula to get just the elements
     El = str_remove_all(El, "[0-9]"),
     El = str_remove_all(El, " "))
 
+names(mol)
 ```
 
 (c) molecular class
@@ -189,17 +192,21 @@ mol =
     Class2 = case_when(AImod > 0.66 ~ "condensed aromatic",
                        AImod <= 0.66 & AImod > 0.50 ~ "aromatic",
                        AImod <= 0.50 & HC < 1.5 ~ "unsaturated/lignin",
-                       HC >= 1.5 ~ "aliphatic"),
-    Class2 = replace_na(Class2, "other"),
+                       HC >= 1.5 ~ "aliphatic",
+                       TRUE ~ "other"),
     Class3 = case_when(AImod > 0.66 ~ "condensed aromatic",
                        AImod <= 0.66 & AImod > 0.50 ~ "aromatic",
                        AImod <= 0.50 & HC < 1.5 ~ "unsaturated/lignin",
                        HC >= 2.0 & OC >= 0.9 ~ "carbohydrate",
                        HC >= 2.0 & OC < 0.9 ~ "lipid",
                        HC < 2.0 & HC >= 1.5 & N == 0 ~ "aliphatic",
-                       HC < 2.0 & HC >= 1.5 & N > 0 ~ "aliphatic+N")
+                       HC < 2.0 & HC >= 1.5 & N > 0 ~ "aliphatic+N",
+                       TRUE ~ "other")
   )
          
+
+print("`mol` created")
+
 ```
 
 
@@ -211,7 +218,10 @@ names(mol)
 
 ---
 
-### Create `dat` file
+### Create `dat`
+
+This dataframe contains info about the samples being analyzed, i.e., which peaks were identified in which sample.  
+We will clean this up and eventually merge with the `mol` dataframe.
 
 ```{r}
 
@@ -224,16 +234,21 @@ dat =
          sample_name = paste0(Proposal_ID, "_", Sampling_Set, "_", Core_Section)) %>% 
   dplyr::select(-icr)
 
-
 ```
-
-
 
 
 #### 3 acquisitions
 
+Each sample/rep was analyzed 3 times on the machine (i.e., 3 acquisitions, or instrument replicates).  
+For robust analysis, some users may choose to only include peaks identified across multiple acquisitions (e.g., peaks seen in 2 of 3 acqusitions, or peaks seen in all acquisitions). The choice is dependent on the user and the questions being asked.  
+For this example, we only include peaks identified in 2 of the 3 acquisitions. 
+
+
 ```{r}
 ## acquisition reps
+
+# an easy way to do this is to convert all the peak areas to binary 0/1 and then add them up. 
+# if the sum is 2 or more, that means the peak was seen in 2 or more acquisitions
 
 dat_acq = 
   dat %>% 
@@ -245,14 +260,19 @@ dat_acq =
   filter(acquisition_KEEP) %>% 
   dplyr::select(-c(contains("peak_area"), contains("acquisition")))
 
-
 ```
 
 
 #### 3 replicates
 
+Each sample was extracted 3 times. We apply the same 2/3 replication filter as above. This is also user-dependent.
+
 ```{r}
 ## Now, we only select molecules that were identified in 2/3 of the total reps
+
+# identify the number of replicates for each sample
+# for this MONet workflow, each sample has 3 replicates, so it is straightforward.
+# But this code can be used even if there was uneven replication across different samples.
 
 max_replicates = 
   dat_acq %>% 
@@ -261,7 +281,7 @@ max_replicates =
   group_by(sample_name, Proposal_ID, Sampling_Set, Core_Section) %>% 
   dplyr::summarise(total_reps = n()) 
 
-
+# now, calculate the occurrence of each peak 
 dat_reps = 
   dat_acq %>% 
   left_join(max_replicates) %>% 
@@ -272,10 +292,12 @@ dat_reps =
   filter(KEEP) %>% 
   dplyr::select(-KEEP)
 
-dat_reps_keep = 
+dat_final = 
   dat_reps %>% 
   dplyr::select(-c(Rep, total_reps, peak_reps)) %>% 
   distinct()
+
+print("`dat_final` created")
 
 ```
 
@@ -286,18 +308,79 @@ Now, combine this file with the `mol` file we generated above.
 
 ```{r}
 icr_processed = 
-  dat_reps_keep %>% 
+  dat_final %>% 
   left_join(mol)
+
+print("`icr_processed` created")
 
 names(icr_processed)
 ```
 
 ---- 
 
-# Van Krevelen Plots and Molecular Classes
+# III. Summary of the data
+
+Number of peaks identified in each sample:
+
+```{r}
+icr_processed %>% 
+  group_by(sample_name) %>% 
+  dplyr::summarise(count = n()) %>% 
+  knitr::kable()
+```
 
 
-## VK Domains
+Grouped by element composition
+
+```{r}
+icr_processed %>% 
+  group_by(sample_name, El) %>% 
+  dplyr::summarise(count = n()) %>% 
+  pivot_wider(names_from = "El", values_from = "count") %>% 
+  knitr::kable()
+```
+
+Grouped by compound class
+
+```{r}
+icr_processed %>% 
+  group_by(sample_name, Class2) %>% 
+  dplyr::summarise(count = n()) %>% 
+  pivot_wider(names_from = "Class2", values_from = "count") %>% 
+  knitr::kable()
+```
+
+<br>
+
+<br>
+
+We can also plot histograms to determine spread of the data
+
+```{r, fig.width=8, fig.height=3}
+
+icr_processed %>% 
+  ggplot(aes(x = calculated_m_z, color = Core_Section))+
+  geom_histogram(position = "identity", fill = NA, linewidth = 1)+
+  facet_wrap(~Proposal_ID)
+
+icr_processed %>% 
+  ggplot(aes(x = NOSC, color = Core_Section))+
+  geom_histogram(position = "identity", fill = NA, linewidth = 1)+
+  facet_wrap(~Proposal_ID)
+
+```
+
+
+---
+
+# IV. Van Krevelen Plots and Molecular Classes
+
+Van Krevelen plots are a way to visualize the molecular composition of the samples.  
+All peaks are plotted as a function of H/C ~ O/C, and the different regions are assigned molecular classes. 
+
+Here are some examples, based on the classification systems used above.
+
+### VK Domains
 
 ```{r, fig.height=12, fig.width=17}
 vk_domains = 
@@ -325,6 +408,8 @@ cowplot::plot_grid(vk1, vk2, vk3)
 
 ## VK Patterns in samples
 
+We now apply these VK plots to see the peaks identified in our samples
+
 ```{r}
 
 icr_processed %>% 
@@ -334,11 +419,27 @@ icr_processed %>%
 
 ```
 
-## unique peaks
+Samples identified by color
 
-top vs. bottom
+```{r}
+
+icr_processed %>% 
+  ggplot(aes(x = OC, y = HC, color = sample_name))+
+  geom_point(size = 0.5)
+
+```
+
+Because of the sheer number of peaks present, it is difficult to identify differences among samples.  
+One solution is to identify the unique peaks present in each sample and plot those. 
+
+## Unique peaks
+
+Q: which peaks are unique to TOP vs. BTM sections in each core?
 
 ```{r, fig.width=12}
+# to identify unique peaks,
+# compute how many times a peak is seen across the groups
+# a count of 1 means the peak is unique to that sample
 
 unique_top = 
   icr_processed %>% 
@@ -350,12 +451,16 @@ unique_top %>%
   filter(count == 1) %>% 
   ggplot(aes(x = OC, y = HC, color = Core_Section))+
   geom_point(size = 2)+
-  facet_wrap(~ Proposal_ID + Sampling_Set)  
+  facet_wrap(~ Proposal_ID + Sampling_Set) +
+  labs(title = "Unique Peaks",
+       color = "Unique to:")
 
 ```
 
 
-comparing sites
+<br>
+
+Q: How do the two sites compare to each other? What are the unique peaks in 60880 vs. 60846 TOP soils?
 
 ```{r}
 
@@ -369,44 +474,55 @@ unique_site %>%
   filter(count == 1) %>% 
   ggplot(aes(x = OC, y = HC, color = Proposal_ID))+
   geom_point(size = 2)+
-  stat_ellipse(level = 0.90, linewidth = 1, aes(group = Proposal_ID), color = "black")
+  stat_ellipse(level = 0.90, linewidth = 1, aes(group = Proposal_ID), color = "black")+
+  labs(title = "Unique Peaks",
+       color = "Unique to:")
 
 ```
+
+Here, we have added the density ellipse, which shows us the region where 90 % of the peaks are seen for each sample. From the graph, it is clear that the two samples contain different types of molecules.
+
+
+--- 
+
+
+# V. Relative abundance
+
+Another metric we use is the "relative abundance" or "relative contribution". This allows us to see the general distribution of the different molecular classes across the samples.
 
 
 ```{r}
 
-icr_processed %>% 
-  ggplot(aes(x = NOSC, color = Core_Section))+
-  geom_histogram(position = "identity", fill = NA, linewidth = 1)+
-  facet_wrap(~Proposal_ID)
-
-icr_processed %>% 
-  ggplot(aes(x = calculated_m_z, color = Core_Section))+
-  geom_histogram(position = "identity", fill = NA, linewidth = 1)+
-#  geom_density(linewidth = 1)+
-  facet_wrap(~Proposal_ID)
-
-```
-
-
-### relative abundance
-
-```{r}
-
-relabund = 
+rel_abundance = 
   icr_processed %>% 
   group_by(Proposal_ID, Sampling_Set, Core_Section, sample_name, Class2) %>% 
   dplyr::summarise(count = n()) %>% 
   group_by(Proposal_ID, Sampling_Set, Core_Section, sample_name) %>% 
   dplyr::mutate(total = sum(count),
-                relabund = 100 * count/total) %>% 
+                relabund = 100 * count/total,
+                relabund = round(relabund, 2)
+                ) %>% 
   ungroup()
 
-relabund %>% 
+rel_abundance %>% 
+  dplyr::select(sample_name, Class2, relabund) %>% 
+  pivot_wider(names_from = "Class2", values_from = "relabund") %>% 
+  knitr::kable()
+
+```
+
+<br>
+
+We can plot this using stacked bar graphs
+
+```{r}
+rel_abundance %>% 
   ggplot(aes(x = Core_Section, y = relabund, fill = Class2)) +
   geom_bar(stat = "identity")+
   facet_wrap(~Proposal_ID)
-
 ```
+
+
+--- 
+---
 
