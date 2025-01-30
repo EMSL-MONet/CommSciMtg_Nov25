@@ -16,15 +16,15 @@ Where:  EMSL 1075, Breakout Room 1
 **Install Fiji:**
 
 1. Download and install Fiji, an open-source image analysis software: https://fiji.sc/
-2. See the file "XCT_tutorial_Fiji.pptx" for details on how to install Fiji.
+2. See the file "MONet CSM-2025 - XCT Tutorial_Tamas-Billy.pptx" for details on how to install Fiji.
 
 **Check if Fiji works:**
 
 1. Open the file "Soil core 2 top zoom_500x500x500_8b".
-2. See slides 4-7 in "XCT_tutorial_Fiji.pptx" for help.
+2. See slides 4-7 in "MONet CSM-2025 - XCT Tutorial_Tamas-Billy.pptx" for help.
 
 * Please install Fiji ahead of time.
-* If you have any problems installing or using Fiji, please see the file "XCT_tutorial_Fiji.pptx" or contact the workshop organizers for help.
+* If you have any problems installing or using Fiji, please see the file "MONet CSM-2025 - XCT Tutorial_Tamas-Billy.pptx" or contact the workshop organizers for help.
  
 ## Data Access
 * Link to download the data for the Fiji-based exercise: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8377888.svg)](https://doi.org/10.5281/zenodo.8377888)
@@ -52,8 +52,9 @@ Learn the following steps with image processing.
 * Segmented porosity from soil data
 * Visualized pore structure
 
-### See Data Tutorial presentation in Session 3: 
+### See These Presentation in Sessions 2 and 4 and : 
 
-* Tutorial 2 - XCT data processing and analysis for insights into soil microstructure
+* Session 2 presentation - XCT data processing and analysis for insights into soil microstructure
+* Session 4 tutorial - XCT Data: "MONet CSM-2025 - XCT Tutorial_Tamas-Billy.pptx"
 
 
