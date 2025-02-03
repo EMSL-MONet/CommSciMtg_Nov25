@@ -173,8 +173,8 @@ Next, we assign classes (aromatic, aliphatic, etc.). These are Van Krevelen clas
 We calculate three sets of classes; users can use any of these, or assign their own classes as appropriate.
 
 1. `Class1` from [Kim et al. 2003](https://doi.org/10.1021/ac034415p) uses H/C and O/C to classify molecules into "lipid", "unsaturated hydrocarbon", "protein", "lignin", "carbohydrate", amino sugar", "tannin", and "condensed hydrocarbon"
-2. `Class2` from [Seidel et al. 2014](10.1016/j.gca.2014.05.038) uses H/C, O/C, and AImod to classify molecules into "aromatic", "condensed aromatic", "highly unsaturated compounds including polyphenols/lignins", and "aliphatic"
-3. `Class3` from [Seidel et al. 2017](10.1016/j.gca.2014.05.038) includes classes "aromatic", "condensed aromatic", "highly unsaturated compounds including polyphenols/lignins", "carbohydrate", "lipid", "aliphatic", and "aliphatic containing N".
+2. `Class2` from [Seidel et al. 2014](https://doi.org/10.1016/j.gca.2014.05.038) uses H/C, O/C, and AImod to classify molecules into "aromatic", "condensed aromatic", "highly unsaturated compounds including polyphenols/lignins", and "aliphatic"
+3. `Class3` from [Seidel et al. 2017](https://doi.org/10.3389/feart.2017.00031) includes classes "aromatic", "condensed aromatic", "highly unsaturated compounds including polyphenols/lignins", "carbohydrate", "lipid", "aliphatic", and "aliphatic containing N".
 
 ```{r}
 mol = 
