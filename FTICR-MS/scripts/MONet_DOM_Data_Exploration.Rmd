@@ -42,7 +42,7 @@ Read-in Processed MONet FTICR-MS and Biogeochemistry data. The FTICR-MS steps be
 ```{r import, echo=FALSE}
 # Biogeochemistry data
 biogeochem = read.csv('./data/Soil_BioChemical_properties.csv')
-metadata = read.csv('merged_data_VGC/Metadata.csv')
+metadata = read.csv('data/Metadata.csv')
 
 ## This script will extract all the zip files in the target folder (creating temporary files) and import and combine them into a single dataframe.
 ## Finally, we will delete the temporary files.
