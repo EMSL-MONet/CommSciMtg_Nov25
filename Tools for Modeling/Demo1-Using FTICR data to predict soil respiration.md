@@ -11,8 +11,8 @@ Where:  EMSL 1077, Breakout Room 2
 ## Data Access
 All the materials needed for the hands-on session are located in this repository: https://github.com/EMSL-MONet/CommSciMtg_Nov25/tree/main/Tools%20for%20Modeling
 ### Learning Objective
-- Analyze FTICR data to estimate microbial functional traits, such as maximum growth rate and potential carbon-use efficiency, using the [Lambda model](https://www.frontiersin.org/articles/10.3389/fmicb.2020.531756/full).
-- Apply the metabolic transition theory by fitting a kinetic relation to predict soil respiration rates based on DOM concentration and chemical diversity ([source](https://academic.oup.com/ismej/article/8/8/1747/7582562)).
+- Analyze FTICR data to estimate microbial functional traits, such as maximum growth rate and potential carbon-use efficiency, using the [Lambda model](https://www.frontiersin.org/articles/10.3389/fmicb.2020.531756/full). There is more information on the Lambda Model from this repo https://github.com/hyunseobsong/lambda.
+- Apply the metabolic transition theory by fitting a kinetic relation to predict soil respiration rates based on DOM concentration and chemical diversity ([Metabolic Transition State Theory kinetics](https://academic.oup.com/ismej/article/8/8/1747/7582562)).
 - Experiment with model parameters to explore their impact and identify the best-fitting values.
 - Perform least-square fitting to refine parameter estimates and achieve optimal model performance.
 
