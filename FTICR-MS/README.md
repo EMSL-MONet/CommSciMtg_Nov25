@@ -35,7 +35,7 @@ After completing this in-person training, you will be able to:
 
 2. Download the Processed and merged MONet FT-ICR-MS for this session from Google Drive?  <br>
 
-3. Clone this GitHub repository? 
+3. Clone this GitHub repository
 
 ### On The Day
 Bring your computer.  <br>
