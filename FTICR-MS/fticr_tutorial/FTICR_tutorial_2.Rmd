@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE,
                       warning = FALSE,
                       comment = FALSE)
 
-knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file()) # Sets working Directory to the R project
+knitr::opts_knit$set(root.dir = '.')
 ```
 
 ```{r setup2, include=FALSE}
@@ -41,8 +41,8 @@ Read-in Processed MONet FTICR-MS and Biogeochemistry data. The FTICR-MS steps be
 
 ```{r import, echo=FALSE}
 # Biogeochemistry data
-biogeochem = read.csv('./data/Soil_BioChemical_properties.csv')
-metadata = read.csv('data/Metadata.csv')
+biogeochem = read.csv('soil_data/Soil_BioChemical_properties.csv')
+metadata = read.csv('soil_data/Metadata.csv')
 
 ## This script will extract all the zip files in the target folder (creating temporary files) and import and combine them into a single dataframe.
 ## Finally, we will delete the temporary files.
